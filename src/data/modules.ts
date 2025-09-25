@@ -1024,10 +1024,40 @@ export const moduleDefinitions: ModuleDefinition[] = [
         description: '処理完了時の通知先URL（オプション）',
         tooltip: '処理完了時に結果を送信するWebhook URLを指定できます。長時間処理の非同期実行に便利です。',
         default: ''
+      },
+      batchSize: {
+        type: 'select',
+        label: 'バッチサイズ',
+        description: '処理バッチサイズ',
+        tooltip: 'メモリ使用量と処理速度のバランスを調整します。大きいほど高速ですが、より多くのメモリを使用します。',
+        default: 'auto',
+        options: ['small', 'medium', 'large', 'auto']
+      },
+      enhancedFeatures: {
+        type: 'boolean',
+        label: '拡張機能',
+        description: 'pyannote 3.1の拡張機能を有効化',
+        tooltip: '最新の音響特徴量抽出、改良されたクラスタリング、ノイズ耐性向上などの拡張機能を使用します。',
+        default: true
+      },
+      voiceActivityDetection: {
+        type: 'boolean',
+        label: 'VAD統合',
+        description: '音声活動検出との統合処理',
+        tooltip: 'pyannote 3.1内蔵のVADと話者分離を統合して処理します。精度向上が期待できます。',
+        default: true
+      },
+      speakerEmbedding: {
+        type: 'select',
+        label: '話者埋め込み',
+        description: '話者埋め込みモデル',
+        tooltip: '話者の特徴抽出に使用するモデルを選択します。wespeaker-voxcelebは最新の高精度モデルです。',
+        default: 'wespeaker-voxceleb',
+        options: ['wespeaker-voxceleb', 'speechbrain-spkrec', 'pyannote-embedding']
       }
     },
     inputPorts: ['audio'],
-    outputPorts: ['speakers', 'segments', 'metrics', 'confidence']
+    outputPorts: ['speakers', 'segments', 'metrics', 'confidence', 'embeddings']
   },
   {
     id: 'diar-eend-vc',
