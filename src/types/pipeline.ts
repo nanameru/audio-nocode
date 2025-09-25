@@ -1,6 +1,6 @@
 // パイプライン関連の型定義
 
-export type ModuleType = 'input' | 'processing' | 'output';
+export type ModuleType = 'input' | 'preprocessing' | 'vad' | 'noise' | 'dereverberation' | 'beamforming' | 'normalization' | 'asr' | 'diarization' | 'output';
 
 export type ModuleStatus = 'idle' | 'running' | 'completed' | 'error';
 

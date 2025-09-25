@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Search, ChevronDown, ChevronRight } from 'lucide-react';
-import { getModulesByType } from '@/data/modules';
+import { getModulesByType, getAllModuleTypes, getModuleTypeLabel, getModuleTypeIcon } from '@/data/modules';
 import { ModuleDefinition } from '@/types/pipeline';
 import { cn } from '@/lib/utils';
 
@@ -80,12 +80,11 @@ function ModuleCategory({ title, icon, modules, expanded, onToggle }: ModuleCate
 export function ModuleLibrary({ className }: ModuleLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(['input', 'processing', 'output'])
+    new Set(['input', 'vad', 'noise', 'asr', 'output'])
   );
 
-  const inputModules = getModulesByType('input');
-  const processingModules = getModulesByType('processing');
-  const outputModules = getModulesByType('output');
+  // Get all module types dynamically
+  const allModuleTypes = getAllModuleTypes();
 
   const toggleCategory = (category: string) => {
     const newExpanded = new Set(expandedCategories);
@@ -126,29 +125,23 @@ export function ModuleLibrary({ className }: ModuleLibraryProps) {
 
       {/* Module Categories */}
       <div className="flex-1 overflow-y-auto p-3">
-        <ModuleCategory
-          title="入力"
-          icon="📥"
-          modules={filterModules(inputModules)}
-          expanded={expandedCategories.has('input')}
-          onToggle={() => toggleCategory('input')}
-        />
-        
-        <ModuleCategory
-          title="処理"
-          icon="🎵"
-          modules={filterModules(processingModules)}
-          expanded={expandedCategories.has('processing')}
-          onToggle={() => toggleCategory('processing')}
-        />
-        
-        <ModuleCategory
-          title="出力"
-          icon="📤"
-          modules={filterModules(outputModules)}
-          expanded={expandedCategories.has('output')}
-          onToggle={() => toggleCategory('output')}
-        />
+        {allModuleTypes.map((moduleType) => {
+          const modules = getModulesByType(moduleType as any);
+          const filteredModules = filterModules(modules);
+          
+          if (filteredModules.length === 0) return null;
+          
+          return (
+            <ModuleCategory
+              key={moduleType}
+              title={getModuleTypeLabel(moduleType)}
+              icon={getModuleTypeIcon(moduleType)}
+              modules={filteredModules}
+              expanded={expandedCategories.has(moduleType)}
+              onToggle={() => toggleCategory(moduleType)}
+            />
+          );
+        })}
       </div>
 
       {/* Footer */}
