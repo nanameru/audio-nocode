@@ -43,6 +43,7 @@ interface PipelineState {
   clearPipeline: () => void;
   validatePipeline: () => { isValid: boolean; errors: string[] };
   exportPipelineAsJSON: () => void;
+  importPipelineFromJSON: (file: File) => Promise<void>;
 }
 
 export const usePipelineStore = create<PipelineState>()(
@@ -389,6 +390,76 @@ export const usePipelineStore = create<PipelineState>()(
         URL.revokeObjectURL(url);
         
         console.log('Pipeline exported as JSON:', exportData);
+      },
+
+      importPipelineFromJSON: async (file: File) => {
+        try {
+          const fileContent = await file.text();
+          const importedData = JSON.parse(fileContent);
+          
+          // Validate imported data structure
+          if (!importedData.id || !importedData.name || !Array.isArray(importedData.modules) || !Array.isArray(importedData.connections)) {
+            throw new Error('無効なパイプラインファイル形式です');
+          }
+          
+          // Validate modules have required fields
+          for (const module of importedData.modules) {
+            if (!module.id || !module.definitionId || !module.name || !module.type) {
+              throw new Error('モジュールデータが不正です');
+            }
+            
+            // Check if module definition exists
+            const definition = getModuleDefinition(module.definitionId);
+            if (!definition) {
+              console.warn(`Module definition not found for: ${module.definitionId}`);
+            }
+          }
+          
+          // Create new pipeline with imported data
+          const pipeline: Pipeline = {
+            ...importedData,
+            id: `pipeline-${Date.now()}`, // Generate new ID to avoid conflicts
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            modules: importedData.modules.map((module: any) => ({
+              ...module,
+              id: `module-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Generate new IDs
+              status: 'idle' as const
+            })),
+            connections: importedData.connections.map((connection: any, index: number) => ({
+              ...connection,
+              id: `connection-${Date.now()}-${index}` // Generate new IDs
+            }))
+          };
+          
+          // Update module IDs in connections
+          const moduleIdMap = new Map();
+          importedData.modules.forEach((originalModule: any, index: number) => {
+            moduleIdMap.set(originalModule.id, pipeline.modules[index].id);
+          });
+          
+          pipeline.connections = pipeline.connections.map(connection => ({
+            ...connection,
+            source: moduleIdMap.get(connection.source) || connection.source,
+            target: moduleIdMap.get(connection.target) || connection.target
+          }));
+          
+          // Load the imported pipeline
+          set({
+            currentPipeline: pipeline,
+            modules: pipeline.modules,
+            connections: pipeline.connections,
+            selectedModuleId: null,
+            isExecuting: false,
+            executionProgress: {}
+          });
+          
+          console.log('Pipeline imported successfully:', pipeline);
+          
+        } catch (error) {
+          console.error('Failed to import pipeline:', error);
+          throw new Error(`パイプラインのインポートに失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
+        }
       }
     }),
     {

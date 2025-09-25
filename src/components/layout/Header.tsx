@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Music, Settings, User, HelpCircle, Save, Play, Square, Download } from 'lucide-react';
+import { Music, Settings, User, HelpCircle, Save, Play, Square, Download, Upload, MoreVertical } from 'lucide-react';
 import { usePipelineStore } from '@/store/pipeline';
 import { cn } from '@/lib/utils';
+import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/DropdownMenu';
 
 const navTabs = [
   { id: 'projects', label: 'Projects', icon: '📁' },
@@ -23,7 +24,8 @@ export function Header() {
     executePipeline,
     savePipeline,
     validatePipeline,
-    exportPipelineAsJSON
+    exportPipelineAsJSON,
+    importPipelineFromJSON
   } = usePipelineStore();
 
   const handleExecute = async () => {
@@ -55,6 +57,25 @@ export function Header() {
         alert(`パイプライン検証エラー: ${validation.errors.join(', ')}`);
       }
     }
+  };
+
+  const handleImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        try {
+          await importPipelineFromJSON(file);
+          alert('パイプラインを正常にインポートしました');
+        } catch (error) {
+          console.error('Import failed:', error);
+          alert(`インポートエラー: ${error instanceof Error ? error.message : '不明なエラー'}`);
+        }
+      }
+    };
+    input.click();
   };
 
   return (
@@ -131,14 +152,39 @@ export function Header() {
                 保存
               </button>
 
-              <button
-                onClick={exportPipelineAsJSON}
-                disabled={!currentPipeline}
-                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium transition-colors hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              <DropdownMenu
+                trigger={
+                  <button
+                    disabled={!currentPipeline}
+                    className={cn(
+                      'flex items-center justify-center p-2 rounded-md text-sm font-medium transition-colors border',
+                      currentPipeline
+                        ? 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                        : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                    )}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                }
               >
-                <Download className="h-4 w-4" />
-                JSON出力
-              </button>
+                <DropdownMenuItem
+                  onClick={exportPipelineAsJSON}
+                  disabled={!currentPipeline}
+                >
+                  <div className="flex items-center gap-2">
+                    <Download className="h-4 w-4" />
+                    JSON出力
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleImport}
+                >
+                  <div className="flex items-center gap-2">
+                    <Upload className="h-4 w-4" />
+                    JSONインポート
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenu>
             </div>
 
             {/* User Menu */}
