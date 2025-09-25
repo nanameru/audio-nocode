@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { ModuleInstance, Connection, Pipeline, SystemMetrics } from '@/types/pipeline';
 import { getModuleDefinition } from '@/data/modules';
+import { audioProcessingAPI, DiarizationOptions } from '@/services/api';
 
 interface PipelineState {
   // Pipeline data
@@ -33,6 +34,7 @@ interface PipelineState {
   
   // Execution actions
   startExecution: () => void;
+  executePipeline: (inputFile?: File) => Promise<void>;
   stopExecution: () => void;
   updateExecutionProgress: (moduleId: string, progress: number) => void;
   updateSystemMetrics: (metrics: SystemMetrics) => void;
@@ -181,6 +183,94 @@ export const usePipelineStore = create<PipelineState>()(
           executionProgress: initialProgress,
           modules: modules.map(m => ({ ...m, status: 'idle' as const }))
         });
+      },
+
+      executePipeline: async (inputFile?: File) => {
+        const { modules, startExecution, stopExecution, updateExecutionProgress } = get();
+        
+        try {
+          startExecution();
+          
+          // Find input module and pyannote modules
+          const inputModule = modules.find(m => m.definitionId === 'file-input');
+          const pyannoteModules = modules.filter(m => 
+            m.definitionId === 'vad-pyannote' || m.definitionId === 'diar-pyannote'
+          );
+          
+          if (!inputModule || pyannoteModules.length === 0) {
+            throw new Error('パイプラインにはファイル入力とpyannote.ai APIノードが必要です');
+          }
+          
+          if (!inputFile) {
+            throw new Error('処理する音声ファイルを選択してください');
+          }
+          
+          // Collect parameters from pyannote modules
+          const options: DiarizationOptions = {};
+          
+          pyannoteModules.forEach(module => {
+            const params = module.parameters;
+            if (params.model) options.model = params.model;
+            if (params.numSpeakers) options.numSpeakers = params.numSpeakers;
+            if (params.minSpeakers) options.minSpeakers = params.minSpeakers;
+            if (params.maxSpeakers) options.maxSpeakers = params.maxSpeakers;
+            if (params.turnLevelConfidence) options.turnLevelConfidence = params.turnLevelConfidence;
+            if (params.exclusive) options.exclusive = params.exclusive;
+            if (params.confidence) options.confidence = params.confidence;
+          });
+          
+          // Update progress: uploading
+          updateExecutionProgress(inputModule.id, 25);
+          pyannoteModules.forEach(m => updateExecutionProgress(m.id, 10));
+          
+          // Execute diarization
+          console.log('Starting diarization with options:', options);
+          const job = await audioProcessingAPI.uploadAndDiarize(inputFile, {
+            ...options,
+            waitForCompletion: true
+          });
+          
+          // Update progress: processing
+          updateExecutionProgress(inputModule.id, 50);
+          pyannoteModules.forEach(m => updateExecutionProgress(m.id, 50));
+          
+          // Wait for completion and get results
+          const result = await audioProcessingAPI.waitForJobCompletion(job.jobId, {
+            onStatusUpdate: (status) => {
+              console.log('Job status update:', status);
+              const progress = status.status === 'running' ? 75 : 
+                             status.status === 'succeeded' ? 100 : 50;
+              pyannoteModules.forEach(m => updateExecutionProgress(m.id, progress));
+            }
+          });
+          
+          // Update final progress
+          updateExecutionProgress(inputModule.id, 100);
+          pyannoteModules.forEach(m => updateExecutionProgress(m.id, 100));
+          
+          console.log('Diarization completed:', result);
+          
+          // Update module status to completed
+          set(state => ({
+            modules: state.modules.map(m => 
+              pyannoteModules.some(pm => pm.id === m.id) || m.id === inputModule.id
+                ? { ...m, status: 'completed' as const }
+                : m
+            )
+          }));
+          
+        } catch (error) {
+          console.error('Pipeline execution failed:', error);
+          
+          // Update module status to error
+          set(state => ({
+            modules: state.modules.map(m => ({ ...m, status: 'error' as const }))
+          }));
+          
+          throw error;
+        } finally {
+          setTimeout(() => stopExecution(), 1000);
+        }
       },
 
       stopExecution: () => {

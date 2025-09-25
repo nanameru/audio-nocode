@@ -20,12 +20,51 @@ class DiarizationRequest(BaseModel):
         None,
         description="Webhook URL to receive results"
     )
+    # pyannote.ai API parameters
+    model: Optional[Literal["precision-1", "precision-2"]] = Field(
+        "precision-2",
+        description="Model to use for diarization"
+    )
+    numSpeakers: Optional[int] = Field(
+        None,
+        description="Number of speakers (if known in advance)",
+        ge=1
+    )
+    minSpeakers: Optional[int] = Field(
+        None,
+        description="Minimum number of speakers",
+        ge=1
+    )
+    maxSpeakers: Optional[int] = Field(
+        None,
+        description="Maximum number of speakers",
+        ge=1
+    )
+    turnLevelConfidence: Optional[bool] = Field(
+        False,
+        description="Include turn-level confidence values in output"
+    )
+    exclusive: Optional[bool] = Field(
+        False,
+        description="Include exclusive diarization (no overlapping speech)"
+    )
+    confidence: Optional[bool] = Field(
+        False,
+        description="Include confidence values in output"
+    )
     
     class Config:
         json_schema_extra = {
             "example": {
                 "url": "https://example.com/audio.wav",
-                "webhook": "https://example.com/webhook"
+                "webhook": "https://example.com/webhook",
+                "model": "precision-2",
+                "numSpeakers": 2,
+                "minSpeakers": 1,
+                "maxSpeakers": 4,
+                "turnLevelConfidence": True,
+                "exclusive": True,
+                "confidence": True
             }
         }
 

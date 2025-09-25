@@ -213,10 +213,10 @@ export const moduleDefinitions: ModuleDefinition[] = [
   },
   {
     id: 'vad-pyannote',
-    name: 'pyannote VAD',
+    name: 'pyannote.ai APIノード',
     type: 'vad',
     icon: '🎪',
-    description: 'pyannote.audioによるVAD処理',
+    description: 'pyannote.ai APIによるVAD処理',
     color: '#6366f1',
     parameters: {
       enabled: {
@@ -225,6 +225,13 @@ export const moduleDefinitions: ModuleDefinition[] = [
         description: 'VAD処理を有効にする',
         default: true
       },
+      model: {
+        type: 'select',
+        label: 'モデル',
+        description: '使用するpyannote.aiモデル',
+        default: 'precision-2',
+        options: ['precision-1', 'precision-2']
+      },
       minSilenceDuration: {
         type: 'number',
         label: '最小無音時間 (ms)',
@@ -232,6 +239,18 @@ export const moduleDefinitions: ModuleDefinition[] = [
         default: 500,
         min: 100,
         max: 2000
+      },
+      confidence: {
+        type: 'boolean',
+        label: '信頼度スコア',
+        description: '信頼度スコアを含める',
+        default: false
+      },
+      exclusive: {
+        type: 'boolean',
+        label: '排他的処理',
+        description: '重複のない音声区間を生成',
+        default: false
       }
     },
     inputPorts: ['audio'],
@@ -824,10 +843,10 @@ export const moduleDefinitions: ModuleDefinition[] = [
   // ===== 話者分離モジュール =====
   {
     id: 'diar-pyannote',
-    name: 'pyannote話者分離',
+    name: 'pyannote.ai APIノード',
     type: 'diarization',
     icon: '👥',
-    description: 'pyannote.audioによる話者分離',
+    description: 'pyannote.ai APIによる話者分離',
     color: '#f97316',
     parameters: {
       enabled: {
@@ -835,6 +854,29 @@ export const moduleDefinitions: ModuleDefinition[] = [
         label: '有効化',
         description: '話者分離を有効にする',
         default: true
+      },
+      model: {
+        type: 'select',
+        label: 'モデル',
+        description: '使用するpyannote.aiモデル',
+        default: 'precision-2',
+        options: ['precision-1', 'precision-2']
+      },
+      numSpeakers: {
+        type: 'number',
+        label: '話者数（固定）',
+        description: '話者数が既知の場合に指定（最適化される）',
+        default: null,
+        min: 1,
+        max: 20
+      },
+      minSpeakers: {
+        type: 'number',
+        label: '最小話者数',
+        description: '想定される最小話者数',
+        default: 1,
+        min: 1,
+        max: 20
       },
       maxSpeakers: {
         type: 'number',
@@ -844,27 +886,87 @@ export const moduleDefinitions: ModuleDefinition[] = [
         min: 2,
         max: 20
       },
-      minDuration: {
-        type: 'slider',
-        label: '最小区間長 (秒)',
-        description: '話者区間の最小長',
-        default: 0.5,
-        min: 0.1,
-        max: 5.0,
-        step: 0.1
+      turnLevelConfidence: {
+        type: 'boolean',
+        label: 'ターンレベル信頼度',
+        description: 'ターンレベルの信頼度スコアを含める',
+        default: false
       },
-      clusteringThreshold: {
-        type: 'slider',
-        label: 'クラスタリング閾値',
-        description: '話者クラスタリングの閾値',
-        default: 0.5,
-        min: 0.1,
-        max: 1.0,
-        step: 0.1
+      exclusive: {
+        type: 'boolean',
+        label: '排他的分離',
+        description: '重複のない話者分離結果を生成',
+        default: false
+      },
+      confidence: {
+        type: 'boolean',
+        label: '信頼度スコア',
+        description: '信頼度スコアを含める',
+        default: false
       }
     },
     inputPorts: ['audio'],
     outputPorts: ['speakers', 'segments']
+  },
+  {
+    id: 'diar-pyannote31',
+    name: 'pyannote 3.1',
+    type: 'diarization',
+    icon: '🎯',
+    description: 'pyannote/speaker-diarization-3.1による高精度話者分離',
+    color: '#06b6d4',
+    parameters: {
+      enabled: {
+        type: 'boolean',
+        label: '有効化',
+        description: 'pyannote 3.1話者分離を有効にする',
+        default: true
+      },
+      numSpeakers: {
+        type: 'number',
+        label: '正確な話者数',
+        description: '話者数が分かっている場合に指定（優先度最高）',
+        default: null,
+        min: 1,
+        max: 20
+      },
+      minSpeakers: {
+        type: 'number',
+        label: '最小話者数',
+        description: '想定される最小話者数',
+        default: 1,
+        min: 1,
+        max: 10
+      },
+      maxSpeakers: {
+        type: 'number',
+        label: '最大話者数',
+        description: '想定される最大話者数',
+        default: 5,
+        min: 2,
+        max: 20
+      },
+      useGpu: {
+        type: 'boolean',
+        label: 'GPU使用',
+        description: 'GPU加速を使用（利用可能な場合）',
+        default: true
+      },
+      progressMonitoring: {
+        type: 'boolean',
+        label: '進捗監視',
+        description: '処理進捗の詳細監視を有効化',
+        default: true
+      },
+      memoryOptimized: {
+        type: 'boolean',
+        label: 'メモリ最適化',
+        description: 'メモリ効率を優先した処理',
+        default: false
+      }
+    },
+    inputPorts: ['audio'],
+    outputPorts: ['speakers', 'segments', 'metrics']
   },
   {
     id: 'diar-eend-vc',

@@ -26,6 +26,19 @@ export interface JobCreationResponse {
   message: string;
 }
 
+export interface DiarizationOptions {
+  webhookUrl?: string;
+  waitForCompletion?: boolean;
+  // pyannote.ai API parameters
+  model?: 'precision-1' | 'precision-2';
+  numSpeakers?: number;
+  minSpeakers?: number;
+  maxSpeakers?: number;
+  turnLevelConfidence?: boolean;
+  exclusive?: boolean;
+  confidence?: boolean;
+}
+
 export class AudioProcessingAPI {
   private baseUrl: string;
 
@@ -51,10 +64,7 @@ export class AudioProcessingAPI {
    */
   async uploadAndDiarize(
     file: File,
-    options: {
-      webhookUrl?: string;
-      waitForCompletion?: boolean;
-    } = {}
+    options: DiarizationOptions = {}
   ): Promise<JobCreationResponse> {
     const formData = new FormData();
     formData.append('file', file);
@@ -65,6 +75,35 @@ export class AudioProcessingAPI {
     
     if (options.waitForCompletion !== undefined) {
       formData.append('wait_for_completion', options.waitForCompletion.toString());
+    }
+
+    // pyannote.ai API parameters
+    if (options.model) {
+      formData.append('model', options.model);
+    }
+    
+    if (options.numSpeakers !== undefined) {
+      formData.append('num_speakers', options.numSpeakers.toString());
+    }
+    
+    if (options.minSpeakers !== undefined) {
+      formData.append('min_speakers', options.minSpeakers.toString());
+    }
+    
+    if (options.maxSpeakers !== undefined) {
+      formData.append('max_speakers', options.maxSpeakers.toString());
+    }
+    
+    if (options.turnLevelConfidence !== undefined) {
+      formData.append('turn_level_confidence', options.turnLevelConfidence.toString());
+    }
+    
+    if (options.exclusive !== undefined) {
+      formData.append('exclusive', options.exclusive.toString());
+    }
+    
+    if (options.confidence !== undefined) {
+      formData.append('confidence', options.confidence.toString());
     }
 
     const response = await fetch(`${this.baseUrl}/api/diarization/upload`, {
@@ -85,10 +124,7 @@ export class AudioProcessingAPI {
    */
   async diarizeFromUrl(
     audioUrl: string,
-    options: {
-      webhookUrl?: string;
-      waitForCompletion?: boolean;
-    } = {}
+    options: DiarizationOptions = {}
   ): Promise<JobCreationResponse> {
     const response = await fetch(`${this.baseUrl}/api/diarization/url`, {
       method: 'POST',
@@ -98,6 +134,13 @@ export class AudioProcessingAPI {
       body: JSON.stringify({
         url: audioUrl,
         webhook: options.webhookUrl,
+        model: options.model,
+        numSpeakers: options.numSpeakers,
+        minSpeakers: options.minSpeakers,
+        maxSpeakers: options.maxSpeakers,
+        turnLevelConfidence: options.turnLevelConfidence,
+        exclusive: options.exclusive,
+        confidence: options.confidence,
       }),
     });
 

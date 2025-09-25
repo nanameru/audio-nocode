@@ -142,22 +142,43 @@ class PyannoteClient:
     async def create_diarization_job(
         self,
         audio_url: str,
-        webhook_url: Optional[str] = None
+        webhook_url: Optional[str] = None,
+        model: str = "precision-2",
+        num_speakers: Optional[int] = None,
+        min_speakers: Optional[int] = None,
+        max_speakers: Optional[int] = None,
+        turn_level_confidence: bool = False,
+        exclusive: bool = False,
+        confidence: bool = False
     ) -> JobCreationResponse:
         """
         Create a diarization job.
-        Based on: https://docs.pyannote.ai/tutorials/how-to-diarize-audio
+        Based on: https://docs.pyannote.ai/api-reference/diarize
         
         Args:
             audio_url: Public URL of the audio file
             webhook_url: Optional webhook URL for results
+            model: Model to use (precision-1 or precision-2)
+            num_speakers: Number of speakers (if known)
+            min_speakers: Minimum number of speakers
+            max_speakers: Maximum number of speakers
+            turn_level_confidence: Include turn-level confidence
+            exclusive: Include exclusive diarization
+            confidence: Include confidence scores
             
         Returns:
             JobCreationResponse with job ID and status
         """
         request_data = DiarizationRequest(
             url=audio_url,
-            webhook=webhook_url
+            webhook=webhook_url,
+            model=model,
+            numSpeakers=num_speakers,
+            minSpeakers=min_speakers,
+            maxSpeakers=max_speakers,
+            turnLevelConfidence=turn_level_confidence,
+            exclusive=exclusive,
+            confidence=confidence
         )
         
         logger.info(f"Creating diarization job for URL: {audio_url}")
@@ -331,7 +352,19 @@ class PyannoteClient:
         self,
         file_path: Path,
         webhook_url: Optional[str] = None,
-        wait_for_completion: bool = True
+        wait_for_completion: bool = True,
+        model: str = "precision-2",
+        num_speakers: Optional[int] = None,
+        min_speakers: Optional[int] = None,
+        max_speakers: Optional[int] = None,
+        turn_level_confidence: bool = False,
+        exclusive: bool = False,
+        confidence: bool = False,
+        # pyannote 3.1 specific parameters
+        use_gpu: bool = True,
+        progress_monitoring: bool = True,
+        memory_optimized: bool = False,
+        enhanced_features: bool = False
     ) -> JobStatus:
         """
         Complete workflow: upload file and create diarization job.
@@ -340,6 +373,13 @@ class PyannoteClient:
             file_path: Local audio file path
             webhook_url: Optional webhook URL
             wait_for_completion: Whether to wait for job completion
+            model: Model to use (precision-1 or precision-2)
+            num_speakers: Number of speakers (if known)
+            min_speakers: Minimum number of speakers
+            max_speakers: Maximum number of speakers
+            turn_level_confidence: Include turn-level confidence
+            exclusive: Include exclusive diarization
+            confidence: Include confidence scores
             
         Returns:
             JobStatus with results (if wait_for_completion=True)
@@ -356,7 +396,14 @@ class PyannoteClient:
             # Create diarization job
             job_response = await self.create_diarization_job(
                 audio_url=uploaded_path,
-                webhook_url=webhook_url
+                webhook_url=webhook_url,
+                model=model,
+                num_speakers=num_speakers,
+                min_speakers=min_speakers,
+                max_speakers=max_speakers,
+                turn_level_confidence=turn_level_confidence,
+                exclusive=exclusive,
+                confidence=confidence
             )
             
             if wait_for_completion:
