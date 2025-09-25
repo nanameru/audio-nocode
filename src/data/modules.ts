@@ -223,12 +223,14 @@ export const moduleDefinitions: ModuleDefinition[] = [
         type: 'boolean',
         label: '有効化',
         description: 'VAD処理を有効にする',
+        tooltip: 'このモジュールでのVAD（音声活動検出）処理を有効または無効にします。無効にすると音声区間の検出をスキップします。',
         default: true
       },
       model: {
         type: 'select',
         label: 'モデル',
         description: '使用するpyannote.aiモデル',
+        tooltip: 'precision-2は最新モデルで37%高精度。precision-1は従来モデル。新規プロジェクトではprecision-2を推奨します。',
         default: 'precision-2',
         options: ['precision-1', 'precision-2']
       },
@@ -236,6 +238,7 @@ export const moduleDefinitions: ModuleDefinition[] = [
         type: 'number',
         label: '最小無音時間 (ms)',
         description: '無音と判定する最小時間',
+        tooltip: '指定した時間以上の無音区間のみを無音として検出します。短すぎると誤検出が増え、長すぎると短い無音を見逃します。',
         default: 500,
         min: 100,
         max: 2000
@@ -244,12 +247,14 @@ export const moduleDefinitions: ModuleDefinition[] = [
         type: 'boolean',
         label: '信頼度スコア',
         description: '信頼度スコアを含める',
+        tooltip: '各音声区間の検出信頼度（0-100）を結果に含めます。品質評価や後処理での閾値設定に使用できます。',
         default: false
       },
       exclusive: {
         type: 'boolean',
         label: '排他的処理',
         description: '重複のない音声区間を生成',
+        tooltip: '重複する音声区間を除去し、時間軸上で重複のない区間のみを出力します。複数話者の同時発話を避けたい場合に有効です。',
         default: false
       }
     },
@@ -853,12 +858,14 @@ export const moduleDefinitions: ModuleDefinition[] = [
         type: 'boolean',
         label: '有効化',
         description: '話者分離を有効にする',
+        tooltip: 'このモジュールでの話者分離処理を有効または無効にします。無効にすると話者の識別をスキップします。',
         default: true
       },
       model: {
         type: 'select',
         label: 'モデル',
         description: '使用するpyannote.aiモデル',
+        tooltip: 'precision-2は最新モデルで37%高精度な話者分離を提供。precision-1は従来モデル。新規プロジェクトではprecision-2を推奨します。',
         default: 'precision-2',
         options: ['precision-1', 'precision-2']
       },
@@ -866,6 +873,7 @@ export const moduleDefinitions: ModuleDefinition[] = [
         type: 'number',
         label: '話者数（固定）',
         description: '話者数が既知の場合に指定（最適化される）',
+        tooltip: '正確な話者数が分かっている場合に指定すると、分離精度が向上します。電話会議（2人）やインタビュー（既知の人数）に最適です。',
         default: null,
         min: 1,
         max: 20
@@ -874,6 +882,7 @@ export const moduleDefinitions: ModuleDefinition[] = [
         type: 'number',
         label: '最小話者数',
         description: '想定される最小話者数',
+        tooltip: '音声に含まれる最小話者数を指定します。この数値未満の話者は検出されません。',
         default: 1,
         min: 1,
         max: 20
@@ -882,6 +891,7 @@ export const moduleDefinitions: ModuleDefinition[] = [
         type: 'number',
         label: '最大話者数',
         description: '想定される最大話者数',
+        tooltip: '音声に含まれる最大話者数を制限します。この数値を超える話者は検出されません。処理速度の向上にも寄与します。',
         default: 5,
         min: 2,
         max: 20
@@ -890,18 +900,21 @@ export const moduleDefinitions: ModuleDefinition[] = [
         type: 'boolean',
         label: 'ターンレベル信頼度',
         description: 'ターンレベルの信頼度スコアを含める',
+        tooltip: '各発話ターンの話者割り当て信頼度を出力します。不確実な区間の特定や品質評価に使用できます。',
         default: false
       },
       exclusive: {
         type: 'boolean',
         label: '排他的分離',
         description: '重複のない話者分離結果を生成',
+        tooltip: '話者の重複発話を除去し、同時に複数の話者が話している区間を単一話者に割り当てます。',
         default: false
       },
       confidence: {
         type: 'boolean',
         label: '信頼度スコア',
         description: '信頼度スコアを含める',
+        tooltip: '全体的な信頼度スコア（0-100）を結果に含めます。処理品質の評価や後処理での閾値設定に使用できます。',
         default: false
       }
     },
@@ -963,10 +976,58 @@ export const moduleDefinitions: ModuleDefinition[] = [
         label: 'メモリ最適化',
         description: 'メモリ効率を優先した処理',
         default: false
+      },
+      turnLevelConfidence: {
+        type: 'boolean',
+        label: 'ターンレベル信頼度',
+        description: 'ターンレベルの信頼度スコアを含める',
+        tooltip: '各発話ターンの話者割り当て信頼度を出力します。不確実な区間の特定や品質評価に使用できます。',
+        default: false
+      },
+      exclusive: {
+        type: 'boolean',
+        label: '排他的分離',
+        description: '重複のない話者分離結果を生成',
+        tooltip: '話者の重複発話を除去し、同時に複数の話者が話している区間を単一話者に割り当てます。',
+        default: false
+      },
+      confidence: {
+        type: 'boolean',
+        label: '信頼度スコア',
+        description: '信頼度スコアを含める',
+        tooltip: '全体的な信頼度スコア（0-100）を結果に含めます。処理品質の評価や後処理での閾値設定に使用できます。',
+        default: false
+      },
+      minDuration: {
+        type: 'slider',
+        label: '最小区間長 (秒)',
+        description: '話者区間の最小長',
+        tooltip: 'この時間未満の短い発話区間は除去されます。ノイズや短い相槌の除去に効果的です。',
+        default: 0.5,
+        min: 0.1,
+        max: 5.0,
+        step: 0.1
+      },
+      clusteringThreshold: {
+        type: 'slider',
+        label: 'クラスタリング閾値',
+        description: '話者クラスタリングの閾値',
+        tooltip: '話者の類似度判定閾値。低くすると話者を細かく分離し、高くすると統合されやすくなります。',
+        default: 0.5,
+        min: 0.1,
+        max: 1.0,
+        step: 0.1
+      },
+      webhookUrl: {
+        type: 'text',
+        label: 'Webhook URL',
+        description: '処理完了時の通知先URL（オプション）',
+        tooltip: '処理完了時に結果を送信するWebhook URLを指定できます。長時間処理の非同期実行に便利です。',
+        default: ''
       }
     },
     inputPorts: ['audio'],
-    outputPorts: ['speakers', 'segments', 'metrics']
+    outputPorts: ['speakers', 'segments', 'metrics', 'confidence']
   },
   {
     id: 'diar-eend-vc',

@@ -42,6 +42,7 @@ interface PipelineState {
   // Utility actions
   clearPipeline: () => void;
   validatePipeline: () => { isValid: boolean; errors: string[] };
+  exportPipelineAsJSON: () => void;
 }
 
 export const usePipelineStore = create<PipelineState>()(
@@ -352,6 +353,42 @@ export const usePipelineStore = create<PipelineState>()(
           isValid: errors.length === 0,
           errors
         };
+      },
+
+      exportPipelineAsJSON: () => {
+        const { currentPipeline, modules, connections } = get();
+        if (!currentPipeline) {
+          console.warn('No pipeline to export');
+          return;
+        }
+
+        // Create export data with current state
+        const exportData = {
+          ...currentPipeline,
+          modules,
+          connections,
+          exportedAt: new Date().toISOString(),
+          version: '1.0.0'
+        };
+
+        // Create and download JSON file
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${currentPipeline.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_pipeline.json`;
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up
+        URL.revokeObjectURL(url);
+        
+        console.log('Pipeline exported as JSON:', exportData);
       }
     }),
     {

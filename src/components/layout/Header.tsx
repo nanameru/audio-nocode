@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Music, Settings, User, HelpCircle, Save, Play, Square } from 'lucide-react';
+import { Music, Settings, User, HelpCircle, Save, Play, Square, Download } from 'lucide-react';
 import { usePipelineStore } from '@/store/pipeline';
 import { cn } from '@/lib/utils';
 
@@ -20,20 +20,39 @@ export function Header() {
     isExecuting, 
     startExecution, 
     stopExecution, 
+    executePipeline,
     savePipeline,
-    validatePipeline 
+    validatePipeline,
+    exportPipelineAsJSON
   } = usePipelineStore();
 
-  const handleExecute = () => {
+  const handleExecute = async () => {
     if (isExecuting) {
       stopExecution();
     } else {
       const validation = validatePipeline();
       if (validation.isValid) {
-        startExecution();
+        // For demo purposes, we'll create a mock file input
+        // In a real implementation, this would come from a file input dialog
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'audio/*';
+        input.onchange = async (e) => {
+          const file = (e.target as HTMLInputElement).files?.[0];
+          if (file) {
+            try {
+              await executePipeline(file);
+            } catch (error) {
+              console.error('Pipeline execution failed:', error);
+              alert(`パイプライン実行エラー: ${error instanceof Error ? error.message : '不明なエラー'}`);
+            }
+          }
+        };
+        input.click();
       } else {
         // TODO: Show validation errors
         console.warn('Pipeline validation failed:', validation.errors);
+        alert(`パイプライン検証エラー: ${validation.errors.join(', ')}`);
       }
     }
   };
@@ -110,6 +129,15 @@ export function Header() {
               >
                 <Save className="h-4 w-4" />
                 保存
+              </button>
+
+              <button
+                onClick={exportPipelineAsJSON}
+                disabled={!currentPipeline}
+                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium transition-colors hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                <Download className="h-4 w-4" />
+                JSON出力
               </button>
             </div>
 

@@ -8,6 +8,7 @@ export interface ModuleParameter {
   type: 'text' | 'number' | 'select' | 'slider' | 'boolean';
   label: string;
   description?: string;
+  tooltip?: string;
   default?: any;
   options?: string[] | number[];
   min?: number;

@@ -6,6 +6,7 @@ import { getModuleDefinition } from '@/data/modules';
 import { ModuleParameter } from '@/types/pipeline';
 import { TestTube, RotateCcw, HelpCircle, Trash2, ChevronDown, ChevronUp, Activity } from 'lucide-react';
 import { ExecutionMonitor } from '@/components/monitor/ExecutionMonitor';
+import { InfoIcon } from '@/components/ui/InfoIcon';
 import { cn } from '@/lib/utils';
 
 interface PropertiesPanelProps {
@@ -117,9 +118,18 @@ function ParameterField({ parameter, value, onChange }: ParameterFieldProps) {
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">
-        {label}
-      </label>
+      <div className="flex items-center gap-2">
+        <label className="block text-sm font-medium text-gray-700">
+          {label}
+        </label>
+        {parameter.tooltip && (
+          <InfoIcon 
+            content={parameter.tooltip}
+            size="sm"
+            position="right"
+          />
+        )}
+      </div>
       {renderField()}
       {description && (
         <p className="text-xs text-gray-500">{description}</p>
