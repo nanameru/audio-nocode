@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+  # Backend (FastAPI + pyannote.ai)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=true
+      - HOST=0.0.0.0
+      - PORT=8000
+      - UPLOAD_DIR=/app/uploads
+      - TEMP_DIR=/app/temp
+      - REDIS_URL=redis://redis:6379/0
+      - WEBHOOK_BASE_URL=http://localhost:8000
+      - ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/app
+      - backend_uploads:/app/uploads
+      - backend_temp:/app/temp
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # Redis (for background tasks)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # Optional: Redis Commander (Redis GUI)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    profiles:
+      - tools
+
+volumes:
+  backend_uploads:
+  backend_temp:
+  redis_data:
