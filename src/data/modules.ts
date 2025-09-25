@@ -933,12 +933,14 @@ export const moduleDefinitions: ModuleDefinition[] = [
         type: 'boolean',
         label: '有効化',
         description: 'pyannote 3.1話者分離を有効にする',
+        tooltip: 'pyannote/speaker-diarization-3.1による最新の高精度話者分離機能を有効にします。従来版より精度とパフォーマンスが向上しています。',
         default: true
       },
       numSpeakers: {
         type: 'number',
         label: '正確な話者数',
         description: '話者数が分かっている場合に指定（優先度最高）',
+        tooltip: '正確な話者数が分かっている場合に指定すると、分離精度が大幅に向上します。電話会議（2人）、インタビュー（既知の人数）、会議（参加者数既知）に最適です。',
         default: null,
         min: 1,
         max: 20
@@ -947,6 +949,7 @@ export const moduleDefinitions: ModuleDefinition[] = [
         type: 'number',
         label: '最小話者数',
         description: '想定される最小話者数',
+        tooltip: '音声に含まれる最小話者数を指定します。この数値未満の話者は検出されません。1人の場合はモノローグ、2人以上の場合は対話として処理されます。',
         default: 1,
         min: 1,
         max: 10
@@ -955,6 +958,7 @@ export const moduleDefinitions: ModuleDefinition[] = [
         type: 'number',
         label: '最大話者数',
         description: '想定される最大話者数',
+        tooltip: '音声に含まれる最大話者数を制限します。この数値を超える話者は検出されません。適切な上限設定により処理速度の向上と誤検出の抑制が期待できます。',
         default: 5,
         min: 2,
         max: 20
@@ -963,18 +967,21 @@ export const moduleDefinitions: ModuleDefinition[] = [
         type: 'boolean',
         label: 'GPU使用',
         description: 'GPU加速を使用（利用可能な場合）',
+        tooltip: 'CUDA対応GPUが利用可能な場合、GPU加速により処理速度が大幅に向上します。長時間音声や高品質処理に特に効果的です。',
         default: true
       },
       progressMonitoring: {
         type: 'boolean',
         label: '進捗監視',
         description: '処理進捗の詳細監視を有効化',
+        tooltip: '処理の詳細な進捗情報を取得します。長時間処理の状況確認や、処理時間の予測、デバッグ情報の取得に有用です。',
         default: true
       },
       memoryOptimized: {
         type: 'boolean',
         label: 'メモリ最適化',
         description: 'メモリ効率を優先した処理',
+        tooltip: 'メモリ使用量を抑えた処理モードです。大容量音声ファイルや限られたメモリ環境での処理に適していますが、処理速度は若干低下します。',
         default: false
       },
       turnLevelConfidence: {
@@ -1029,7 +1036,7 @@ export const moduleDefinitions: ModuleDefinition[] = [
         type: 'select',
         label: 'バッチサイズ',
         description: '処理バッチサイズ',
-        tooltip: 'メモリ使用量と処理速度のバランスを調整します。大きいほど高速ですが、より多くのメモリを使用します。',
+        tooltip: 'メモリ使用量と処理速度のバランスを調整します。large: 高速・高メモリ、medium: バランス、small: 低メモリ・低速、auto: 自動最適化',
         default: 'auto',
         options: ['small', 'medium', 'large', 'auto']
       },
@@ -1037,21 +1044,21 @@ export const moduleDefinitions: ModuleDefinition[] = [
         type: 'boolean',
         label: '拡張機能',
         description: 'pyannote 3.1の拡張機能を有効化',
-        tooltip: '最新の音響特徴量抽出、改良されたクラスタリング、ノイズ耐性向上などの拡張機能を使用します。',
+        tooltip: 'pyannote 3.1の最新機能を使用します：改良された音響特徴量抽出、高精度クラスタリング、ノイズ耐性向上、重複発話検出の改善など。',
         default: true
       },
       voiceActivityDetection: {
         type: 'boolean',
         label: 'VAD統合',
         description: '音声活動検出との統合処理',
-        tooltip: 'pyannote 3.1内蔵のVADと話者分離を統合して処理します。精度向上が期待できます。',
+        tooltip: 'pyannote 3.1内蔵の高精度VAD（音声活動検出）と話者分離を統合処理します。無音区間の正確な検出により分離精度が向上します。',
         default: true
       },
       speakerEmbedding: {
         type: 'select',
         label: '話者埋め込み',
         description: '話者埋め込みモデル',
-        tooltip: '話者の特徴抽出に使用するモデルを選択します。wespeaker-voxcelebは最新の高精度モデルです。',
+        tooltip: '話者特徴抽出モデルを選択：wespeaker-voxceleb（最新・高精度）、speechbrain-spkrec（汎用性重視）、pyannote-embedding（軽量・高速）',
         default: 'wespeaker-voxceleb',
         options: ['wespeaker-voxceleb', 'speechbrain-spkrec', 'pyannote-embedding']
       }
