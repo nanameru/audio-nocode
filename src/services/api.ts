@@ -30,13 +30,26 @@ export interface DiarizationOptions {
   webhookUrl?: string;
   waitForCompletion?: boolean;
   // pyannote.ai API parameters
-  model?: 'precision-1' | 'precision-2';
+  model?: 'precision-1' | 'precision-2' | 'precision-3';
   numSpeakers?: number;
   minSpeakers?: number;
   maxSpeakers?: number;
   turnLevelConfidence?: boolean;
   exclusive?: boolean;
   confidence?: boolean;
+}
+
+export interface Pyannote31Options extends DiarizationOptions {
+  // pyannote 3.1 specific parameters
+  useGpu?: boolean;
+  progressMonitoring?: boolean;
+  memoryOptimized?: boolean;
+  enhancedFeatures?: boolean;
+  voiceActivityDetection?: boolean;
+  speakerEmbedding?: 'wespeaker-voxceleb' | 'speechbrain-spkrec' | 'pyannote-embedding';
+  minDuration?: number;
+  clusteringThreshold?: number;
+  batchSize?: 'small' | 'medium' | 'large' | 'auto';
 }
 
 export class AudioProcessingAPI {
@@ -114,6 +127,62 @@ export class AudioProcessingAPI {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.detail || `Upload failed: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Upload audio file and start pyannote 3.1 diarization
+   */
+  async uploadAndDiarizePyannote31(
+    file: File,
+    options: Pyannote31Options = {}
+  ): Promise<JobCreationResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    if (options.webhookUrl) {
+      formData.append('webhook_url', options.webhookUrl);
+    }
+    
+    if (options.waitForCompletion !== undefined) {
+      formData.append('wait_for_completion', options.waitForCompletion.toString());
+    }
+
+    // pyannote 3.1 specific parameters
+    if (options.numSpeakers !== undefined) {
+      formData.append('num_speakers', options.numSpeakers.toString());
+    }
+    
+    if (options.minSpeakers !== undefined) {
+      formData.append('min_speakers', options.minSpeakers.toString());
+    }
+    
+    if (options.maxSpeakers !== undefined) {
+      formData.append('max_speakers', options.maxSpeakers.toString());
+    }
+    
+    if (options.useGpu !== undefined) {
+      formData.append('use_gpu', options.useGpu.toString());
+    }
+    
+    if (options.progressMonitoring !== undefined) {
+      formData.append('progress_monitoring', options.progressMonitoring.toString());
+    }
+    
+    if (options.memoryOptimized !== undefined) {
+      formData.append('memory_optimized', options.memoryOptimized.toString());
+    }
+
+    const response = await fetch(`${this.baseUrl}/api/diarization/upload-pyannote31`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || `Pyannote 3.1 upload failed: ${response.status}`);
     }
 
     return response.json();

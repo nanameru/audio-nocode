@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { ModuleInstance, Connection, Pipeline, SystemMetrics } from '@/types/pipeline';
 import { getModuleDefinition } from '@/data/modules';
-import { audioProcessingAPI, DiarizationOptions } from '@/services/api';
+import { audioProcessingAPI, DiarizationOptions, Pyannote31Options } from '@/services/api';
 
 interface PipelineState {
   // Pipeline data
@@ -196,7 +196,9 @@ export const usePipelineStore = create<PipelineState>()(
           // Find input module and pyannote modules
           const inputModule = modules.find(m => m.definitionId === 'file-input');
           const pyannoteModules = modules.filter(m => 
-            m.definitionId === 'vad-pyannote' || m.definitionId === 'diar-pyannote'
+            m.definitionId === 'vad-pyannote' || 
+            m.definitionId === 'diar-pyannote' || 
+            m.definitionId === 'diar-pyannote31'
           );
           
           if (!inputModule || pyannoteModules.length === 0) {
@@ -207,30 +209,75 @@ export const usePipelineStore = create<PipelineState>()(
             throw new Error('処理する音声ファイルを選択してください');
           }
           
+          // Check if we have pyannote 3.1 modules
+          const hasPyannote31 = pyannoteModules.some(m => m.definitionId === 'diar-pyannote31');
+          
           // Collect parameters from pyannote modules
-          const options: DiarizationOptions = {};
+          let job;
           
-          pyannoteModules.forEach(module => {
-            const params = module.parameters;
-            if (params.model) options.model = params.model;
-            if (params.numSpeakers) options.numSpeakers = params.numSpeakers;
-            if (params.minSpeakers) options.minSpeakers = params.minSpeakers;
-            if (params.maxSpeakers) options.maxSpeakers = params.maxSpeakers;
-            if (params.turnLevelConfidence) options.turnLevelConfidence = params.turnLevelConfidence;
-            if (params.exclusive) options.exclusive = params.exclusive;
-            if (params.confidence) options.confidence = params.confidence;
-          });
-          
-          // Update progress: uploading
-          updateExecutionProgress(inputModule.id, 25);
-          pyannoteModules.forEach(m => updateExecutionProgress(m.id, 10));
-          
-          // Execute diarization
-          console.log('Starting diarization with options:', options);
-          const job = await audioProcessingAPI.uploadAndDiarize(inputFile, {
-            ...options,
-            waitForCompletion: true
-          });
+          if (hasPyannote31) {
+            // Use pyannote 3.1 API with enhanced parameters
+            const options: Pyannote31Options = {};
+            
+            pyannoteModules.forEach(module => {
+              const params = module.parameters;
+              
+              // Basic parameters
+              if (params.numSpeakers) options.numSpeakers = params.numSpeakers;
+              if (params.minSpeakers) options.minSpeakers = params.minSpeakers;
+              if (params.maxSpeakers) options.maxSpeakers = params.maxSpeakers;
+              if (params.turnLevelConfidence) options.turnLevelConfidence = params.turnLevelConfidence;
+              if (params.exclusive) options.exclusive = params.exclusive;
+              if (params.confidence) options.confidence = params.confidence;
+              
+              // pyannote 3.1 specific parameters
+              if (params.useGpu !== undefined) options.useGpu = params.useGpu;
+              if (params.progressMonitoring !== undefined) options.progressMonitoring = params.progressMonitoring;
+              if (params.memoryOptimized !== undefined) options.memoryOptimized = params.memoryOptimized;
+              if (params.enhancedFeatures !== undefined) options.enhancedFeatures = params.enhancedFeatures;
+              if (params.voiceActivityDetection !== undefined) options.voiceActivityDetection = params.voiceActivityDetection;
+              if (params.speakerEmbedding) options.speakerEmbedding = params.speakerEmbedding;
+              if (params.minDuration !== undefined) options.minDuration = params.minDuration;
+              if (params.clusteringThreshold !== undefined) options.clusteringThreshold = params.clusteringThreshold;
+              if (params.batchSize) options.batchSize = params.batchSize;
+            });
+            
+            // Update progress: uploading
+            updateExecutionProgress(inputModule.id, 25);
+            pyannoteModules.forEach(m => updateExecutionProgress(m.id, 10));
+            
+            // Execute pyannote 3.1 diarization
+            console.log('Starting pyannote 3.1 diarization with options:', options);
+            job = await audioProcessingAPI.uploadAndDiarizePyannote31(inputFile, {
+              ...options,
+              waitForCompletion: true
+            });
+          } else {
+            // Use standard pyannote API
+            const options: DiarizationOptions = {};
+            
+            pyannoteModules.forEach(module => {
+              const params = module.parameters;
+              if (params.model) options.model = params.model;
+              if (params.numSpeakers) options.numSpeakers = params.numSpeakers;
+              if (params.minSpeakers) options.minSpeakers = params.minSpeakers;
+              if (params.maxSpeakers) options.maxSpeakers = params.maxSpeakers;
+              if (params.turnLevelConfidence) options.turnLevelConfidence = params.turnLevelConfidence;
+              if (params.exclusive) options.exclusive = params.exclusive;
+              if (params.confidence) options.confidence = params.confidence;
+            });
+            
+            // Update progress: uploading
+            updateExecutionProgress(inputModule.id, 25);
+            pyannoteModules.forEach(m => updateExecutionProgress(m.id, 10));
+            
+            // Execute standard diarization
+            console.log('Starting standard diarization with options:', options);
+            job = await audioProcessingAPI.uploadAndDiarize(inputFile, {
+              ...options,
+              waitForCompletion: true
+            });
+          }
           
           // Update progress: processing
           updateExecutionProgress(inputModule.id, 50);
