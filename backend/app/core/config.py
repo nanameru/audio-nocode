@@ -19,6 +19,12 @@ class Settings(BaseSettings):
         description="pyannote.ai API base URL"
     )
     
+    # Hugging Face Configuration (for local pyannote.audio)
+    hf_token: str = Field(
+        default="",
+        description="Hugging Face access token for pyannote/speaker-diarization-3.1"
+    )
+    
     # Server Configuration
     host: str = Field(default="0.0.0.0", description="Server host")
     port: int = Field(default=8000, description="Server port")

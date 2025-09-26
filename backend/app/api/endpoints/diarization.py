@@ -19,7 +19,9 @@ from app.models.pyannote_models import (
     ProcessingJob,
     PyannoteError
 )
-from app.services.pyannote_client import pyannote_client, PyannoteAPIError, RateLimitExceeded
+from app.services.pyannote_client import pyannote_client
+from app.services.local_pyannote import get_local_pyannote_service
+from app.services.audio_converter import get_audio_converter
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +73,144 @@ async def upload_and_diarize(
     exclusive: bool = False,
     confidence: bool = False
 ):
+    """
+    Upload audio/video file and start standard diarization with WebM support.
+    """
+    # Validate file type - support audio and video files (including webm)
+    audio_extensions = {'.wav', '.mp3', '.mp4', '.m4a', '.flac', '.ogg', '.webm', '.aac', '.wma', '.avi', '.mov', '.mkv', '.flv'}
+    file_extension = Path(file.filename).suffix.lower() if file.filename else ""
+    
+    is_audio_content_type = file.content_type and (
+        file.content_type.startswith("audio/") or 
+        file.content_type.startswith("video/") or
+        file.content_type == "application/octet-stream"
+    )
+    is_audio_extension = file_extension in audio_extensions
+    
+    if not (is_audio_content_type or is_audio_extension):
+        raise HTTPException(
+            status_code=400,
+            detail=f"File must be an audio/video file. Received content-type: {file.content_type}, extension: {file_extension}"
+        )
+    
+    # Generate unique job ID
+    job_id = str(uuid.uuid4())
+    
+    try:
+        # Save uploaded file temporarily
+        upload_dir = Path(settings.upload_dir)
+        upload_dir.mkdir(exist_ok=True)
+        
+        file_extension = Path(file.filename).suffix if file.filename else ".wav"
+        temp_file_path = upload_dir / f"{job_id}{file_extension}"
+        
+        # Write file to disk
+        with open(temp_file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        logger.info(f"Saved uploaded file: {temp_file_path}")
+        
+        # Convert video to audio if needed
+        converter = get_audio_converter()
+        audio_file_path = temp_file_path
+        converted_file_path = None
+        
+        if converter.needs_conversion(temp_file_path):
+            logger.info(f"Converting video file to audio: {temp_file_path}")
+            try:
+                audio_file_path, was_converted = await converter.convert_to_audio(temp_file_path, upload_dir)
+                if was_converted:
+                    converted_file_path = audio_file_path
+                    logger.info(f"Video converted to audio: {audio_file_path}")
+            except Exception as conv_error:
+                logger.error(f"Failed to convert video to audio: {conv_error}")
+                # Clean up uploaded file
+                if temp_file_path.exists():
+                    temp_file_path.unlink()
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Failed to extract audio from video file: {str(conv_error)}"
+                )
+        
+        # Create processing job record
+        processing_job = ProcessingJob(
+            id=job_id,
+            pyannote_job_id="",  # Will be set after API call
+            status="uploading",
+            file_path=str(audio_file_path),
+            webhook_url=webhook_url
+        )
+        active_jobs[job_id] = processing_job
+        
+        # Start standard diarization
+        try:
+            diarization_params = {
+                "model": model or "precision-2",
+                "webhook_url": webhook_url,
+                "wait_for_completion": wait_for_completion
+            }
+            
+            if num_speakers is not None:
+                diarization_params["num_speakers"] = num_speakers
+            else:
+                if min_speakers is not None:
+                    diarization_params["min_speakers"] = min_speakers
+                if max_speakers is not None:
+                    diarization_params["max_speakers"] = max_speakers
+            
+            if turn_level_confidence:
+                diarization_params["turn_level_confidence"] = turn_level_confidence
+            if exclusive:
+                diarization_params["exclusive"] = exclusive
+            if confidence:
+                diarization_params["confidence"] = confidence
+            
+            job_status = await pyannote_client.diarize_file(
+                file_path=audio_file_path,
+                **diarization_params
+            )
+            
+            # Update job record
+            processing_job.pyannote_job_id = job_status.job_id
+            processing_job.status = job_status.status
+            
+            logger.info(f"Started diarization job: {job_status.job_id}")
+            
+            return JobCreationResponse(
+                jobId=job_id,
+                status=job_status.status,
+                message=job_status.message or "Diarization job started successfully"
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to start diarization: {str(e)}")
+            processing_job.status = "failed"
+            
+            # Clean up files
+            if temp_file_path.exists():
+                temp_file_path.unlink()
+            if converted_file_path and converted_file_path.exists():
+                converted_file_path.unlink()
+                
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to start diarization: {str(e)}"
+            )
+            
+    except Exception as e:
+        logger.error(f"Failed to process upload: {str(e)}")
+        
+        # Clean up uploaded files if they exist
+        if 'temp_file_path' in locals() and temp_file_path.exists():
+            temp_file_path.unlink()
+        if 'converted_file_path' in locals() and converted_file_path and converted_file_path.exists():
+            converted_file_path.unlink()
+            
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process upload: {str(e)}"
+        )
 
 
 @router.post("/upload-pyannote31", response_model=JobCreationResponse)
@@ -99,11 +239,21 @@ async def upload_and_diarize_pyannote31(
         progress_monitoring: Enable detailed progress monitoring
         memory_optimized: Use memory-optimized processing
     """
-    # Validate file type
-    if not file.content_type or not file.content_type.startswith("audio/"):
+    # Validate file type - support audio and video files (including webm)
+    audio_extensions = {'.wav', '.mp3', '.mp4', '.m4a', '.flac', '.ogg', '.webm', '.aac', '.wma'}
+    file_extension = Path(file.filename).suffix.lower() if file.filename else ""
+    
+    is_audio_content_type = file.content_type and (
+        file.content_type.startswith("audio/") or 
+        file.content_type.startswith("video/") or
+        file.content_type == "application/octet-stream"
+    )
+    is_audio_extension = file_extension in audio_extensions
+    
+    if not (is_audio_content_type or is_audio_extension):
         raise HTTPException(
             status_code=400,
-            detail="File must be an audio file"
+            detail=f"File must be an audio/video file. Received content-type: {file.content_type}, extension: {file_extension}"
         )
     
     # Generate unique job ID
@@ -124,81 +274,89 @@ async def upload_and_diarize_pyannote31(
         
         logger.info(f"Saved uploaded file for pyannote 3.1: {temp_file_path}")
         
+        # Convert video to audio if needed
+        converter = get_audio_converter()
+        audio_file_path = temp_file_path
+        converted_file_path = None
+        
+        if converter.needs_conversion(temp_file_path):
+            logger.info(f"Converting video file to audio for pyannote 3.1: {temp_file_path}")
+            try:
+                audio_file_path, was_converted = await converter.convert_to_audio(temp_file_path, upload_dir)
+                if was_converted:
+                    converted_file_path = audio_file_path
+                    logger.info(f"Video converted to audio for pyannote 3.1: {audio_file_path}")
+            except Exception as conv_error:
+                logger.error(f"Failed to convert video to audio: {conv_error}")
+                # Clean up uploaded file
+                if temp_file_path.exists():
+                    temp_file_path.unlink()
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Failed to extract audio from video file: {str(conv_error)}"
+                )
+        
         # Create processing job record
         processing_job = ProcessingJob(
             id=job_id,
             pyannote_job_id="",  # Will be set after API call
             status="uploading",
-            file_path=str(temp_file_path),
+            file_path=str(audio_file_path),
             webhook_url=webhook_url
         )
         active_jobs[job_id] = processing_job
         
-        # Start pyannote 3.1 diarization with enhanced parameters
+        # Start local pyannote 3.1 diarization
         try:
-            # Build parameters for pyannote 3.1
-            diarization_params = {
-                "model": "precision-3",  # Use latest model
-                "webhook_url": webhook_url,
-                "wait_for_completion": wait_for_completion
-            }
+            # Get local pyannote service
+            local_service = await get_local_pyannote_service()
             
-            # Add speaker constraints
-            if num_speakers is not None:
-                diarization_params["num_speakers"] = num_speakers
-            else:
-                if min_speakers is not None:
-                    diarization_params["min_speakers"] = min_speakers
-                if max_speakers is not None:
-                    diarization_params["max_speakers"] = max_speakers
+            if not local_service.is_available():
+                raise HTTPException(
+                    status_code=503,
+                    detail="Local pyannote.audio service not available. Please check dependencies and Hugging Face token."
+                )
             
-            # Add pyannote 3.1 specific features
-            diarization_params.update({
-                "use_gpu": use_gpu,
-                "progress_monitoring": progress_monitoring,
-                "memory_optimized": memory_optimized,
-                "enhanced_features": True  # Enable pyannote 3.1 features
-            })
-            
-            job_status = await pyannote_client.diarize_file(
-                file_path=temp_file_path,
-                **diarization_params
+            # Run local diarization
+            segments = await local_service.diarize_audio(
+                audio_path=audio_file_path,
+                num_speakers=num_speakers,
+                min_speakers=min_speakers,
+                max_speakers=max_speakers,
+                use_gpu=use_gpu,
+                progress_monitoring=progress_monitoring,
+                memory_optimized=memory_optimized
             )
             
-            # Update job record
-            processing_job.pyannote_job_id = job_status.jobId
-            processing_job.status = job_status.status
-            
-            if wait_for_completion and job_status.output:
-                processing_job.result = job_status.output
+            # Update job record with results
+            processing_job.status = "completed"
+            processing_job.result = {
+                "diarization": segments,
+                "num_speakers": len(set(s["speaker"] for s in segments)),
+                "total_segments": len(segments),
+                "duration": max(s["end"] for s in segments) if segments else 0.0
+            }
             
             return JobCreationResponse(
                 jobId=job_id,
-                status=job_status.status,
-                message=f"pyannote 3.1 diarization {'completed' if wait_for_completion else 'started'} successfully"
+                status="completed",
+                message=f"Local pyannote 3.1 diarization completed successfully: {len(segments)} segments, {len(set(s['speaker'] for s in segments))} speakers"
             )
             
-        except RateLimitExceeded as e:
-            processing_job.status = "rate_limited"
-            processing_job.error_message = f"Rate limit exceeded. Retry after {e.retry_after} seconds."
-            
-            raise HTTPException(
-                status_code=429,
-                detail={
-                    "error": "Rate limit exceeded",
-                    "retry_after": e.retry_after,
-                    "limit": e.limit,
-                    "remaining": e.remaining
-                }
-            )
-            
-        except PyannoteAPIError as e:
+        except Exception as diarization_error:
+            logger.error(f"Local pyannote 3.1 diarization failed: {diarization_error}")
             processing_job.status = "failed"
-            processing_job.error_message = str(e)
+            processing_job.error_message = str(diarization_error)
+            
+            # Clean up files
+            if temp_file_path.exists():
+                temp_file_path.unlink()
+            if converted_file_path and converted_file_path.exists():
+                converted_file_path.unlink()
             
             raise HTTPException(
-                status_code=e.status_code or 500,
-                detail=f"pyannote 3.1 API error: {e.message}"
+                status_code=500,
+                detail=f"Local pyannote 3.1 diarization failed: {str(diarization_error)}"
             )
             
     except Exception as e:
@@ -209,138 +367,18 @@ async def upload_and_diarize_pyannote31(
             active_jobs[job_id].status = "failed"
             active_jobs[job_id].error_message = str(e)
         
+        # Clean up uploaded files if they exist
+        if 'temp_file_path' in locals() and temp_file_path.exists():
+            temp_file_path.unlink()
+        if 'converted_file_path' in locals() and converted_file_path and converted_file_path.exists():
+            converted_file_path.unlink()
+        
         raise HTTPException(
             status_code=500,
             detail=f"Failed to process file with pyannote 3.1: {str(e)}"
         )
 
 
-@router.post("/upload", response_model=JobCreationResponse)
-async def upload_and_diarize(
-    file: UploadFile = File(...),
-    webhook_url: Optional[str] = None,
-    wait_for_completion: bool = False,
-    model: Optional[str] = "precision-2",
-    num_speakers: Optional[int] = None,
-    min_speakers: Optional[int] = None,
-    max_speakers: Optional[int] = None,
-    turn_level_confidence: bool = False,
-    exclusive: bool = False,
-    confidence: bool = False
-):
-    """
-    Upload audio file and start diarization.
-    
-    Args:
-        file: Audio file to process
-        webhook_url: Optional webhook URL for results
-        wait_for_completion: Whether to wait for job completion
-        model: Model to use (precision-1 or precision-2)
-        num_speakers: Number of speakers (if known)
-        min_speakers: Minimum number of speakers
-        max_speakers: Maximum number of speakers
-        turn_level_confidence: Include turn-level confidence
-        exclusive: Include exclusive diarization
-        confidence: Include confidence scores
-    """
-    # Validate file type
-    if not file.content_type or not file.content_type.startswith("audio/"):
-        raise HTTPException(
-            status_code=400,
-            detail="File must be an audio file"
-        )
-    
-    # Generate unique job ID
-    job_id = str(uuid.uuid4())
-    
-    try:
-        # Save uploaded file temporarily
-        upload_dir = Path(settings.upload_dir)
-        upload_dir.mkdir(exist_ok=True)
-        
-        file_extension = Path(file.filename).suffix if file.filename else ".wav"
-        temp_file_path = upload_dir / f"{job_id}{file_extension}"
-        
-        # Write file to disk
-        with open(temp_file_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
-        
-        logger.info(f"Saved uploaded file: {temp_file_path}")
-        
-        # Create processing job record
-        processing_job = ProcessingJob(
-            id=job_id,
-            pyannote_job_id="",  # Will be set after API call
-            status="uploading",
-            file_path=str(temp_file_path),
-            webhook_url=webhook_url
-        )
-        active_jobs[job_id] = processing_job
-        
-        # Start diarization
-        try:
-            job_status = await pyannote_client.diarize_file(
-                file_path=temp_file_path,
-                webhook_url=webhook_url,
-                wait_for_completion=wait_for_completion,
-                model=model,
-                num_speakers=num_speakers,
-                min_speakers=min_speakers,
-                max_speakers=max_speakers,
-                turn_level_confidence=turn_level_confidence,
-                exclusive=exclusive,
-                confidence=confidence
-            )
-            
-            # Update job record
-            processing_job.pyannote_job_id = job_status.jobId
-            processing_job.status = job_status.status
-            
-            if wait_for_completion and job_status.output:
-                processing_job.result = job_status.output
-            
-            return JobCreationResponse(
-                jobId=job_id,
-                status=job_status.status,
-                message=f"Diarization {'completed' if wait_for_completion else 'started'} successfully"
-            )
-            
-        except RateLimitExceeded as e:
-            processing_job.status = "rate_limited"
-            processing_job.error_message = f"Rate limit exceeded. Retry after {e.retry_after} seconds."
-            
-            raise HTTPException(
-                status_code=429,
-                detail={
-                    "error": "Rate limit exceeded",
-                    "retry_after": e.retry_after,
-                    "limit": e.limit,
-                    "remaining": e.remaining
-                }
-            )
-            
-        except PyannoteAPIError as e:
-            processing_job.status = "failed"
-            processing_job.error_message = str(e)
-            
-            raise HTTPException(
-                status_code=e.status_code or 500,
-                detail=f"pyannote.ai API error: {e.message}"
-            )
-            
-    except Exception as e:
-        logger.error(f"Failed to process upload: {e}")
-        
-        # Update job status if it exists
-        if job_id in active_jobs:
-            active_jobs[job_id].status = "failed"
-            active_jobs[job_id].error_message = str(e)
-        
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to process file: {str(e)}"
-        )
 
 
 @router.post("/url", response_model=JobCreationResponse)

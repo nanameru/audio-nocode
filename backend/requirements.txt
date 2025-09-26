@@ -19,6 +19,12 @@ redis==5.0.1
 # Audio processing utilities
 librosa==0.10.1
 soundfile==0.12.1
+moviepy==1.0.3
+
+# Local pyannote.audio for speaker diarization 3.1
+pyannote.audio>=3.1.0
+torch>=1.13.0
+torchaudio>=0.13.0
 
 # Logging and monitoring
 structlog==23.2.0
