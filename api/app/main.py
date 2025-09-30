@@ -28,7 +28,11 @@ app.add_middleware(
 )
 
 # Vertex AI 初期化
-aiplatform.init(project=PROJECT_ID, location=REGION)
+aiplatform.init(
+    project=PROJECT_ID, 
+    location=REGION,
+    staging_bucket=f"gs://{BUCKET}"
+)
 
 # GCS クライアント
 storage_client = storage.Client()
