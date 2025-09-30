@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from google.cloud import storage, aiplatform
+from google.cloud import storage, aiplatform, secretmanager
 from google.cloud.aiplatform_v1.types import CustomJobSpec, WorkerPoolSpec, MachineSpec, ContainerSpec
 from sse_starlette.sse import EventSourceResponse
 
@@ -54,34 +54,30 @@ async def health():
 async def create_signed_url(request: SignUrlRequest):
     """GCS署名URLを発行（ブラウザ直アップロード用）"""
     try:
-        from google.auth import iam
-        from google.auth.transport import requests as google_requests
-        import google.auth
+        import json
+        from google.oauth2 import service_account
         
-        bucket = storage_client.bucket(BUCKET)
+        # Secret Managerから秘密鍵を取得
+        client = secretmanager.SecretManagerServiceClient()
+        secret_name = f"projects/{PROJECT_ID}/secrets/run-api-service-account-key/versions/latest"
+        response = client.access_secret_version(request={"name": secret_name})
+        secret_data = response.payload.data.decode("UTF-8")
+        
+        # サービスアカウント認証情報を作成
+        service_account_info = json.loads(secret_data)
+        credentials = service_account.Credentials.from_service_account_info(service_account_info)
+        
+        # GCSクライアントを認証情報付きで作成
+        storage_client_with_key = storage.Client(credentials=credentials, project=PROJECT_ID)
+        bucket = storage_client_with_key.bucket(BUCKET)
         blob = bucket.blob(f"uploads/{request.file_name}")
-        
-        # サービスアカウントのメールアドレス
-        service_account_email = f"run-api@{PROJECT_ID}.iam.gserviceaccount.com"
-        
-        # Cloud Run上での認証情報取得
-        credentials, _ = google.auth.default()
-        
-        # IAM Signer を作成
-        auth_request = google_requests.Request()
-        signing_credentials = iam.Signer(
-            auth_request,
-            credentials,
-            service_account_email
-        )
         
         # PUT用の署名URL（10分有効）
         url = blob.generate_signed_url(
             version="v4",
             expiration=timedelta(minutes=10),
             method="PUT",
-            content_type=request.content_type,
-            credentials=signing_credentials
+            content_type=request.content_type
         )
         
         return {
