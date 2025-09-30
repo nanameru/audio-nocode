@@ -54,15 +54,30 @@ async def health():
 async def create_signed_url(request: SignUrlRequest):
     """GCS署名URLを発行（ブラウザ直アップロード用）"""
     try:
+        from google.auth.transport import requests
+        from google.auth import compute_engine
+        import google.auth
+        
         bucket = storage_client.bucket(BUCKET)
         blob = bucket.blob(f"uploads/{request.file_name}")
         
+        # サービスアカウントのメールアドレス
+        service_account_email = f"run-api@{PROJECT_ID}.iam.gserviceaccount.com"
+        
+        # Cloud Run上での認証情報取得とリクエストオブジェクト作成
+        credentials, _ = google.auth.default()
+        auth_request = requests.Request()
+        
         # PUT用の署名URL（10分有効）
+        # service_account_email と credentials を指定して IAM signBlob API を使用
         url = blob.generate_signed_url(
             version="v4",
             expiration=timedelta(minutes=10),
             method="PUT",
             content_type=request.content_type,
+            service_account_email=service_account_email,
+            credentials=credentials,
+            access_token=credentials.token if hasattr(credentials, 'token') else None
         )
         
         return {
