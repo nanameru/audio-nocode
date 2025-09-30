@@ -106,8 +106,8 @@ async def create_job(request: JobRequest):
         worker_pool_specs = [
             WorkerPoolSpec(
                 machine_spec=MachineSpec(
-                    machine_type="g2-standard-4",
-                    accelerator_type="NVIDIA_L4",
+                    machine_type="n1-standard-4",
+                    accelerator_type="NVIDIA_TESLA_T4",
                     accelerator_count=1,
                 ),
                 replica_count=1,
