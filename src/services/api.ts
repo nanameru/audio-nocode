@@ -134,6 +134,7 @@ export class AudioProcessingAPI {
       },
       body: JSON.stringify({
         input_gs_uri: gs_uri,
+        use_gpu: options.useGpu !== undefined ? options.useGpu : true,
       }),
     });
 

@@ -46,6 +46,7 @@ class SignUrlRequest(BaseModel):
 class JobRequest(BaseModel):
     input_gs_uri: str
     output_gs_uri: Optional[str] = None
+    use_gpu: bool = True
 
 
 @app.get("/health")
@@ -102,14 +103,23 @@ async def create_job(request: JobRequest):
             file_name = request.input_gs_uri.split("/")[-1].replace(".wav", ".json")
             request.output_gs_uri = f"gs://{BUCKET}/outputs/{file_name}"
         
-        # Vertex AI Custom Job の定義
+        # Vertex AI Custom Job の定義（GPU/CPU切り替え）
+        if request.use_gpu:
+            # GPU使用
+            machine_spec = MachineSpec(
+                machine_type="n1-standard-4",
+                accelerator_type="NVIDIA_TESLA_T4",
+                accelerator_count=1,
+            )
+        else:
+            # CPU使用（acceleratorなし）
+            machine_spec = MachineSpec(
+                machine_type="n1-standard-4",
+            )
+        
         worker_pool_specs = [
             WorkerPoolSpec(
-                machine_spec=MachineSpec(
-                    machine_type="n1-standard-4",
-                    accelerator_type="NVIDIA_TESLA_T4",
-                    accelerator_count=1,
-                ),
+                machine_spec=machine_spec,
                 replica_count=1,
                 container_spec=ContainerSpec(
                     image_uri=WORKER_IMAGE_URI,
