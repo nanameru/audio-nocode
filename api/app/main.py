@@ -98,6 +98,9 @@ async def create_signed_url(request: SignUrlRequest):
 async def create_job(request: JobRequest):
     """Vertex AI Custom Job（GPU）を起動"""
     try:
+        # デバッグログ：use_gpu の値を確認
+        print(f"🔍 DEBUG: use_gpu = {request.use_gpu}")
+        
         # 出力先が未指定なら自動生成
         if not request.output_gs_uri:
             file_name = request.input_gs_uri.split("/")[-1].replace(".wav", ".json")
@@ -105,6 +108,7 @@ async def create_job(request: JobRequest):
         
         # Vertex AI Custom Job の定義（GPU/CPU切り替え）
         if request.use_gpu:
+            print("✅ GPU mode selected")
             # GPU使用
             machine_spec = MachineSpec(
                 machine_type="n1-standard-4",
@@ -112,6 +116,7 @@ async def create_job(request: JobRequest):
                 accelerator_count=1,
             )
         else:
+            print("🖥️ CPU mode selected")
             # CPU使用（acceleratorなし）
             machine_spec = MachineSpec(
                 machine_type="n1-standard-4",
