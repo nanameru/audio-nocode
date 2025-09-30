@@ -11,7 +11,7 @@ from sse_starlette.sse import EventSourceResponse
 
 # 環境変数
 PROJECT_ID = os.environ.get("PROJECT_ID", "encoded-victory-440718-k6")
-REGION = os.environ.get("REGION", "asia-northeast1")
+REGION = os.environ.get("REGION", "us-west1")
 BUCKET = os.environ.get("BUCKET", "audio-processing-studio")
 WORKER_IMAGE_URI = os.environ.get("WORKER_IMAGE_URI")
 HF_TOKEN_SECRET = os.environ.get("MEETING_HF_TOKEN", "")
