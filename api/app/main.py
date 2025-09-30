@@ -13,6 +13,9 @@ from sse_starlette.sse import EventSourceResponse
 PROJECT_ID = os.environ.get("PROJECT_ID", "encoded-victory-440718-k6")
 REGION = os.environ.get("REGION", "us-west1")
 BUCKET = os.environ.get("BUCKET", "audio-processing-studio")
+WORKER_IMAGE_URI_GPU = os.environ.get("WORKER_IMAGE_URI_GPU")
+WORKER_IMAGE_URI_CPU = os.environ.get("WORKER_IMAGE_URI_CPU")
+# 後方互換性のため、WORKER_IMAGE_URIが設定されている場合はそれを使用
 WORKER_IMAGE_URI = os.environ.get("WORKER_IMAGE_URI")
 HF_TOKEN_SECRET = os.environ.get("MEETING_HF_TOKEN", "")
 
@@ -115,19 +118,28 @@ async def create_job(request: JobRequest):
                 accelerator_type="NVIDIA_TESLA_T4",
                 accelerator_count=1,
             )
+            # GPU専用イメージを使用（指定がなければ汎用イメージ）
+            image_uri = WORKER_IMAGE_URI_GPU or WORKER_IMAGE_URI
         else:
             print("🖥️ CPU mode selected")
             # CPU使用（acceleratorなし）
             machine_spec = MachineSpec(
                 machine_type="n1-standard-4",
             )
+            # CPU専用イメージを使用（指定がなければ汎用イメージ）
+            image_uri = WORKER_IMAGE_URI_CPU or WORKER_IMAGE_URI
+        
+        if not image_uri:
+            raise HTTPException(status_code=500, detail="WORKER_IMAGE_URI not configured")
+        
+        print(f"📦 Using image: {image_uri}")
         
         worker_pool_specs = [
             WorkerPoolSpec(
                 machine_spec=machine_spec,
                 replica_count=1,
                 container_spec=ContainerSpec(
-                    image_uri=WORKER_IMAGE_URI,
+                    image_uri=image_uri,
                     args=[
                         "--input", request.input_gs_uri,
                         "--output", request.output_gs_uri,

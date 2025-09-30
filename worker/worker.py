@@ -1,6 +1,7 @@
 import argparse
 import os
 import json
+import torch
 from google.cloud import storage
 from pyannote.audio import Pipeline
 
@@ -35,7 +36,11 @@ if __name__ == "__main__":
     # 1) GCSからダウンロード
     download_from_gcs(args.input, input_wav)
 
-    # 2) pyannote 3.1 で話者分離
+    # 2) CPU/GPU自動検出
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"🖥️  Using device: {device}")
+    
+    # 3) pyannote 3.1 で話者分離
     print("🚀 Loading pyannote 3.1 pipeline...")
     hf_token = os.getenv("MEETING_HF_TOKEN")
     if not hf_token:
@@ -45,6 +50,10 @@ if __name__ == "__main__":
         "pyannote/speaker-diarization-3.1",
         use_auth_token=hf_token
     )
+    
+    # デバイスを明示的に指定
+    pipeline.to(device)
+    print(f"✅ Pipeline loaded on {device}")
     
     print("🎯 Running diarization...")
     diarization = pipeline(input_wav)
