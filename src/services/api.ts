@@ -3,27 +3,29 @@
  * Integrates with Python FastAPI backend
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://meeting-api-576239773901.asia-northeast1.run.app';
+
+export interface SignedUrlResponse {
+  signed_url: string;
+  gs_uri: string;
+  expires_in: number;
+}
 
 export interface DiarizationJob {
-  jobId: string;
-  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled';
-  message?: string;
-  output?: {
-    diarization: Array<{
-      start: number;
-      end: number;
-      speaker: string;
-    }>;
-  };
-  created_at?: string;
-  completed_at?: string;
+  job_id: string;
+  input: string;
+  output: string;
+  status: 'SUBMITTED' | 'QUEUED' | 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
+  state?: string;
+  create_time?: string;
+  update_time?: string;
 }
 
 export interface JobCreationResponse {
-  jobId: string;
+  job_id: string;
+  input: string;
+  output: string;
   status: string;
-  message: string;
 }
 
 export interface DiarizationOptions {
@@ -46,7 +48,6 @@ export interface Pyannote31Options extends DiarizationOptions {
   memoryOptimized?: boolean;
   enhancedFeatures?: boolean;
   voiceActivityDetection?: boolean;
-  speakerEmbedding?: 'wespeaker-voxceleb' | 'speechbrain-spkrec' | 'pyannote-embedding';
   minDuration?: number;
   clusteringThreshold?: number;
   batchSize?: 'small' | 'medium' | 'large' | 'auto';
@@ -60,73 +61,85 @@ export class AudioProcessingAPI {
   }
 
   /**
-   * Test backend connection and pyannote.ai API
+   * Health check
    */
-  async testConnection(): Promise<{ status: string; message: string; api_key_valid: boolean }> {
-    const response = await fetch(`${this.baseUrl}/api/diarization/test`);
+  async healthCheck(): Promise<{ status: string; project: string; region: string }> {
+    const response = await fetch(`${this.baseUrl}/health`);
     
     if (!response.ok) {
-      throw new Error(`API test failed: ${response.status}`);
+      throw new Error(`Health check failed: ${response.status}`);
     }
     
     return response.json();
   }
 
   /**
-   * Upload audio file and start diarization
+   * Get signed URL for direct upload to GCS
+   */
+  async getSignedUrl(fileName: string, contentType: string = 'audio/wav'): Promise<SignedUrlResponse> {
+    const response = await fetch(`${this.baseUrl}/sign-url`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        file_name: fileName,
+        content_type: contentType,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || `Failed to get signed URL: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Upload file directly to GCS using signed URL
+   */
+  async uploadToGCS(file: File, signedUrl: string): Promise<void> {
+    const response = await fetch(signedUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': file.type || 'audio/wav',
+      },
+      body: file,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to upload to GCS: ${response.status}`);
+    }
+  }
+
+  /**
+   * Upload audio file and start diarization (New Cloud Run flow)
    */
   async uploadAndDiarize(
     file: File,
     options: DiarizationOptions = {}
   ): Promise<JobCreationResponse> {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    if (options.webhookUrl) {
-      formData.append('webhook_url', options.webhookUrl);
-    }
-    
-    if (options.waitForCompletion !== undefined) {
-      formData.append('wait_for_completion', options.waitForCompletion.toString());
-    }
+    // 1) Get signed URL
+    const { signed_url, gs_uri } = await this.getSignedUrl(file.name, file.type);
 
-    // pyannote.ai API parameters
-    if (options.model) {
-      formData.append('model', options.model);
-    }
-    
-    if (options.numSpeakers !== undefined) {
-      formData.append('num_speakers', options.numSpeakers.toString());
-    }
-    
-    if (options.minSpeakers !== undefined) {
-      formData.append('min_speakers', options.minSpeakers.toString());
-    }
-    
-    if (options.maxSpeakers !== undefined) {
-      formData.append('max_speakers', options.maxSpeakers.toString());
-    }
-    
-    if (options.turnLevelConfidence !== undefined) {
-      formData.append('turn_level_confidence', options.turnLevelConfidence.toString());
-    }
-    
-    if (options.exclusive !== undefined) {
-      formData.append('exclusive', options.exclusive.toString());
-    }
-    
-    if (options.confidence !== undefined) {
-      formData.append('confidence', options.confidence.toString());
-    }
+    // 2) Upload to GCS
+    await this.uploadToGCS(file, signed_url);
 
-    const response = await fetch(`${this.baseUrl}/api/diarization/upload`, {
+    // 3) Start Vertex AI job
+    const response = await fetch(`${this.baseUrl}/jobs`, {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        input_gs_uri: gs_uri,
+      }),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.detail || `Upload failed: ${response.status}`);
+      throw new Error(error.detail || `Job creation failed: ${response.status}`);
     }
 
     return response.json();
@@ -225,11 +238,56 @@ export class AudioProcessingAPI {
    * Get job status and results
    */
   async getJobStatus(jobId: string): Promise<DiarizationJob> {
-    const response = await fetch(`${this.baseUrl}/api/diarization/jobs/${jobId}`);
+    const response = await fetch(`${this.baseUrl}/jobs/${jobId}`);
     
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.detail || `Failed to get job status: ${response.status}`);
+    }
+    
+    return response.json();
+  }
+
+  /**
+   * Stream job progress via SSE
+   */
+  subscribeToJobProgress(
+    jobId: string,
+    onMessage: (data: { state?: string; status?: string; message?: string }) => void,
+    onError?: (error: Error) => void
+  ): EventSource {
+    const eventSource = new EventSource(`${this.baseUrl}/events/${jobId}`);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        onMessage(data);
+      } catch (err) {
+        console.error('Failed to parse SSE message:', err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error('SSE error:', err);
+      if (onError) {
+        onError(new Error('SSE connection error'));
+      }
+      eventSource.close();
+    };
+
+    return eventSource;
+  }
+
+  /**
+   * Download result JSON from GCS
+   */
+  async downloadResult(gsUri: string): Promise<any> {
+    // GCSから直接ダウンロード（公開バケットの場合）
+    const publicUrl = gsUri.replace('gs://', 'https://storage.googleapis.com/');
+    const response = await fetch(publicUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to download result: ${response.status}`);
     }
     
     return response.json();
@@ -287,7 +345,7 @@ export class AudioProcessingAPI {
       }
 
       // Check if job is completed
-      if (['succeeded', 'failed', 'canceled'].includes(status.status)) {
+      if (['SUCCEEDED', 'FAILED', 'CANCELLED'].includes(status.status)) {
         return status;
       }
 
@@ -299,19 +357,6 @@ export class AudioProcessingAPI {
       // Wait before next poll
       await new Promise(resolve => setTimeout(resolve, pollInterval));
     }
-  }
-
-  /**
-   * Health check
-   */
-  async healthCheck(): Promise<{ status: string; pyannote_api: string; version: string }> {
-    const response = await fetch(`${this.baseUrl}/health`);
-    
-    if (!response.ok) {
-      throw new Error(`Health check failed: ${response.status}`);
-    }
-    
-    return response.json();
   }
 }
 

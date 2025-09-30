@@ -1054,14 +1054,6 @@ export const moduleDefinitions: ModuleDefinition[] = [
         tooltip: 'pyannote 3.1内蔵の高精度VAD（音声活動検出）と話者分離を統合処理します。無音区間の正確な検出により分離精度が向上します。',
         default: true
       },
-      speakerEmbedding: {
-        type: 'select',
-        label: '話者埋め込み',
-        description: '話者埋め込みモデル',
-        tooltip: '話者特徴抽出モデルを選択：wespeaker-voxceleb（最新・高精度）、speechbrain-spkrec（汎用性重視）、pyannote-embedding（軽量・高速）',
-        default: 'wespeaker-voxceleb',
-        options: ['wespeaker-voxceleb', 'speechbrain-spkrec', 'pyannote-embedding']
-      }
     },
     inputPorts: ['audio'],
     outputPorts: ['speakers', 'segments', 'metrics', 'confidence', 'embeddings']

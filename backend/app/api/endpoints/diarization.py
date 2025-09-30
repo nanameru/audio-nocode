@@ -308,16 +308,32 @@ async def upload_and_diarize_pyannote31(
         
         # Start local pyannote 3.1 diarization
         try:
+            logger.info("🚀 Starting pyannote 3.1 local diarization...")
+            
             # Get local pyannote service
+            logger.info("🔄 Getting local pyannote service...")
             local_service = await get_local_pyannote_service()
             
+            logger.info(f"🔍 Service availability check: {local_service.is_available()}")
+            
             if not local_service.is_available():
+                logger.error("❌ Local pyannote.audio service not available!")
+                logger.error("💡 Possible causes:")
+                logger.error("   1. Hugging Face token not set or invalid")
+                logger.error("   2. pyannote.audio not installed")
+                logger.error("   3. Model download failed")
+                logger.error("   4. License not accepted for pyannote/speaker-diarization-3.1")
+                
                 raise HTTPException(
                     status_code=503,
                     detail="Local pyannote.audio service not available. Please check dependencies and Hugging Face token."
                 )
             
             # Run local diarization
+            logger.info(f"🎯 Running diarization on: {audio_file_path}")
+            logger.info(f"   Parameters: speakers={num_speakers}, min={min_speakers}, max={max_speakers}")
+            logger.info(f"   GPU: {use_gpu}, Progress: {progress_monitoring}, Memory optimized: {memory_optimized}")
+            
             segments = await local_service.diarize_audio(
                 audio_path=audio_file_path,
                 num_speakers=num_speakers,
@@ -327,6 +343,8 @@ async def upload_and_diarize_pyannote31(
                 progress_monitoring=progress_monitoring,
                 memory_optimized=memory_optimized
             )
+            
+            logger.info(f"✅ Diarization completed: {len(segments)} segments found")
             
             # Update job record with results
             processing_job.status = "completed"
@@ -344,15 +362,31 @@ async def upload_and_diarize_pyannote31(
             )
             
         except Exception as diarization_error:
-            logger.error(f"Local pyannote 3.1 diarization failed: {diarization_error}")
+            logger.error(f"❌ Local pyannote 3.1 diarization failed: {diarization_error}")
+            logger.error(f"🔍 Error type: {type(diarization_error).__name__}")
+            logger.error(f"🔍 Error details: {str(diarization_error)}")
+            
+            # Provide specific error guidance
+            error_str = str(diarization_error).lower()
+            if 'authentication' in error_str or 'token' in error_str or 'unauthorized' in error_str:
+                logger.error("💡 Authentication Error - Check Hugging Face token")
+            elif 'model' in error_str or 'pipeline' in error_str:
+                logger.error("💡 Model Error - Check pyannote.audio installation and model access")
+            elif 'memory' in error_str or 'cuda' in error_str:
+                logger.error("💡 Resource Error - Check memory/GPU availability")
+            elif 'file' in error_str or 'audio' in error_str:
+                logger.error("💡 File Error - Check audio file format and accessibility")
+            
             processing_job.status = "failed"
             processing_job.error_message = str(diarization_error)
             
             # Clean up files
             if temp_file_path.exists():
                 temp_file_path.unlink()
+                logger.info(f"🧹 Cleaned up temporary file: {temp_file_path}")
             if converted_file_path and converted_file_path.exists():
                 converted_file_path.unlink()
+                logger.info(f"🧹 Cleaned up converted file: {converted_file_path}")
             
             raise HTTPException(
                 status_code=500,

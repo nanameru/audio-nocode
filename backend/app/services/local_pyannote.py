@@ -4,6 +4,7 @@ Uses pyannote/speaker-diarization-3.1 model locally.
 """
 
 import logging
+import os
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import asyncio
@@ -33,18 +34,34 @@ class LocalPyannoteService:
         
     async def initialize(self) -> bool:
         """Initialize the pyannote.audio pipeline."""
+        logger.info("🔄 Initializing pyannote.audio 3.1 service...")
+        
         if not PYANNOTE_AVAILABLE:
-            logger.error(f"pyannote.audio not available: {IMPORT_ERROR}")
+            logger.error(f"❌ pyannote.audio not available: {IMPORT_ERROR}")
+            logger.error("💡 Install with: pip install pyannote.audio torch torchaudio")
             return False
             
         try:
             # Check for Hugging Face token
             hf_token = getattr(settings, 'hf_token', None) or getattr(settings, 'pyannote_api_key', None)
+            logger.info(f"🔍 Checking Hugging Face token...")
+            logger.info(f"   - HF_TOKEN exists: {bool(getattr(settings, 'hf_token', None))}")
+            logger.info(f"   - PYANNOTE_API_KEY exists: {bool(getattr(settings, 'pyannote_api_key', None))}")
+            
             if not hf_token:
-                logger.error("Hugging Face token not found. Set HF_TOKEN or PYANNOTE_API_KEY in environment.")
+                logger.error("❌ Hugging Face token not found!")
+                logger.error("💡 Set HF_TOKEN or PYANNOTE_API_KEY in environment variables:")
+                logger.error("   export HF_TOKEN=hf_your_token_here")
+                logger.error("   or create .env.local file with: HF_TOKEN=hf_your_token_here")
                 return False
-                
-            logger.info("Loading pyannote/speaker-diarization-3.1 pipeline...")
+            
+            # Validate token format
+            if not hf_token.startswith('hf_'):
+                logger.warning(f"⚠️  Token format warning: Expected 'hf_' prefix, got: {hf_token[:10]}...")
+            
+            logger.info(f"✅ Found Hugging Face token: {hf_token[:10]}...")
+            logger.info("📥 Loading pyannote/speaker-diarization-3.1 pipeline...")
+            logger.info("   This may take several minutes on first run (downloading models)...")
             
             # Load pipeline in thread to avoid blocking
             loop = asyncio.get_event_loop()
@@ -54,27 +71,60 @@ class LocalPyannoteService:
                 hf_token
             )
             
-            # Set device
+            # Set default device preference
             if torch.cuda.is_available():
                 self.device = torch.device("cuda")
-                logger.info("CUDA available, using GPU for diarization")
+                logger.info("🚀 CUDA available, GPU will be used when requested")
             else:
                 self.device = torch.device("cpu")
-                logger.info("CUDA not available, using CPU for diarization")
+                logger.info("🐌 CUDA not available, CPU will be used")
                 
-            logger.info("✅ pyannote/speaker-diarization-3.1 pipeline loaded successfully")
+            logger.info("✅ pyannote/speaker-diarization-3.1 pipeline loaded successfully!")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to initialize pyannote pipeline: {e}")
+            logger.error(f"❌ Failed to initialize pyannote pipeline: {e}")
+            logger.error(f"🔍 Error type: {type(e).__name__}")
+            
+            # Provide specific error guidance
+            error_str = str(e).lower()
+            if 'authentication' in error_str or 'token' in error_str or 'unauthorized' in error_str:
+                logger.error("💡 Authentication Error Solutions:")
+                logger.error("   1. Check if your Hugging Face token is valid")
+                logger.error("   2. Visit: https://huggingface.co/settings/tokens")
+                logger.error("   3. Ensure token has 'read' permission")
+                logger.error("   4. Accept pyannote/speaker-diarization-3.1 license")
+            elif 'connection' in error_str or 'network' in error_str:
+                logger.error("💡 Network Error Solutions:")
+                logger.error("   1. Check internet connection")
+                logger.error("   2. Check firewall/proxy settings")
+                logger.error("   3. Try again later")
+            elif 'memory' in error_str or 'cuda' in error_str:
+                logger.error("💡 Memory/CUDA Error Solutions:")
+                logger.error("   1. Try with CPU instead of GPU")
+                logger.error("   2. Close other applications to free memory")
+                logger.error("   3. Restart the service")
+            
             return False
     
     def _load_pipeline(self, hf_token: str):
         """Load pipeline in thread (blocking operation)."""
-        return Pipeline.from_pretrained(
-            "pyannote/speaker-diarization-3.1",
-            use_auth_token=hf_token
-        )
+        try:
+            logger.info("🔄 Downloading pyannote/speaker-diarization-3.1 model...")
+            logger.info(f"   Using token: {hf_token[:10]}...")
+            
+            pipeline = Pipeline.from_pretrained(
+                "pyannote/speaker-diarization-3.1",
+                use_auth_token=hf_token
+            )
+            
+            logger.info("✅ Model downloaded and loaded successfully!")
+            return pipeline
+            
+        except Exception as e:
+            logger.error(f"❌ Pipeline loading failed: {e}")
+            logger.error(f"🔍 Error details: {type(e).__name__}: {str(e)}")
+            raise
     
     async def diarize_audio(
         self,
@@ -110,16 +160,19 @@ class LocalPyannoteService:
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
             
         try:
-            # Set device based on use_gpu parameter
-            device = self.device if use_gpu and torch.cuda.is_available() else torch.device("cpu")
+            # Set torch device based on use_gpu parameter
+            if use_gpu and torch.cuda.is_available():
+                device = torch.device("cuda")
+                torch.cuda.set_device(0)  # Use first GPU
+                os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Ensure GPU visibility
+                logger.info(f"🚀 Using GPU device: {device}")
+            else:
+                device = torch.device("cpu")
+                # Don't hide CUDA devices completely, just use CPU
+                logger.info(f"🐌 Using CPU device: {device}")
             
-            # Move pipeline to device if needed
-            if self.pipeline.device != device:
-                logger.info(f"Moving pipeline to {device}")
-                await asyncio.get_event_loop().run_in_executor(
-                    self.executor,
-                    lambda: self.pipeline.to(device)
-                )
+            # pyannote.audio Pipeline handles device management internally
+            # No need to manually move pipeline to device
             
             # Prepare diarization parameters
             diar_params = {}

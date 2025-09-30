@@ -236,7 +236,6 @@ export const usePipelineStore = create<PipelineState>()(
               if (params.memoryOptimized !== undefined) options.memoryOptimized = params.memoryOptimized;
               if (params.enhancedFeatures !== undefined) options.enhancedFeatures = params.enhancedFeatures;
               if (params.voiceActivityDetection !== undefined) options.voiceActivityDetection = params.voiceActivityDetection;
-              if (params.speakerEmbedding) options.speakerEmbedding = params.speakerEmbedding;
               if (params.minDuration !== undefined) options.minDuration = params.minDuration;
               if (params.clusteringThreshold !== undefined) options.clusteringThreshold = params.clusteringThreshold;
               if (params.batchSize) options.batchSize = params.batchSize;
@@ -271,12 +270,9 @@ export const usePipelineStore = create<PipelineState>()(
             updateExecutionProgress(inputModule.id, 25);
             pyannoteModules.forEach(m => updateExecutionProgress(m.id, 10));
             
-            // Execute standard diarization
-            console.log('Starting standard diarization with options:', options);
-            job = await audioProcessingAPI.uploadAndDiarize(inputFile, {
-              ...options,
-              waitForCompletion: true
-            });
+            // Execute standard diarization (Cloud Run + Vertex AI)
+            console.log('Starting Cloud Run diarization with options:', options);
+            job = await audioProcessingAPI.uploadAndDiarize(inputFile, options);
           }
           
           // Update progress: processing
@@ -284,11 +280,11 @@ export const usePipelineStore = create<PipelineState>()(
           pyannoteModules.forEach(m => updateExecutionProgress(m.id, 50));
           
           // Wait for completion and get results
-          const result = await audioProcessingAPI.waitForJobCompletion(job.jobId, {
+          const result = await audioProcessingAPI.waitForJobCompletion(job.job_id, {
             onStatusUpdate: (status) => {
               console.log('Job status update:', status);
-              const progress = status.status === 'running' ? 75 : 
-                             status.status === 'succeeded' ? 100 : 50;
+              const progress = status.status === 'RUNNING' ? 75 : 
+                             status.status === 'SUCCEEDED' ? 100 : 50;
               pyannoteModules.forEach(m => updateExecutionProgress(m.id, progress));
             }
           });
