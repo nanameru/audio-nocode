@@ -147,13 +147,10 @@ async def job_events(job_id: str):
     """SSEでジョブ進捗を配信"""
     async def event_generator():
         try:
-            # ジョブIDからCustomJobを取得
-            job = aiplatform.CustomJob.get(job_id)
-            
             last_state = None
             while True:
-                # 状態を取得
-                job.refresh()
+                # ジョブIDからCustomJobを取得（毎回最新状態を取得）
+                job = aiplatform.CustomJob.get(job_id)
                 current_state = job.state.name
                 
                 if current_state != last_state:
@@ -195,8 +192,8 @@ async def job_events(job_id: str):
 async def get_job_status(job_id: str):
     """ジョブ状態を取得"""
     try:
+        # CustomJob.get() で最新状態を取得
         job = aiplatform.CustomJob.get(job_id)
-        job.refresh()
         
         return {
             "job_id": job_id,
