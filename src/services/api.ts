@@ -146,59 +146,14 @@ export class AudioProcessingAPI {
   }
 
   /**
-   * Upload audio file and start pyannote 3.1 diarization
+   * Upload audio file and start pyannote 3.1 diarization (Cloud Run flow)
    */
   async uploadAndDiarizePyannote31(
     file: File,
     options: Pyannote31Options = {}
   ): Promise<JobCreationResponse> {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    if (options.webhookUrl) {
-      formData.append('webhook_url', options.webhookUrl);
-    }
-    
-    if (options.waitForCompletion !== undefined) {
-      formData.append('wait_for_completion', options.waitForCompletion.toString());
-    }
-
-    // pyannote 3.1 specific parameters
-    if (options.numSpeakers !== undefined) {
-      formData.append('num_speakers', options.numSpeakers.toString());
-    }
-    
-    if (options.minSpeakers !== undefined) {
-      formData.append('min_speakers', options.minSpeakers.toString());
-    }
-    
-    if (options.maxSpeakers !== undefined) {
-      formData.append('max_speakers', options.maxSpeakers.toString());
-    }
-    
-    if (options.useGpu !== undefined) {
-      formData.append('use_gpu', options.useGpu.toString());
-    }
-    
-    if (options.progressMonitoring !== undefined) {
-      formData.append('progress_monitoring', options.progressMonitoring.toString());
-    }
-    
-    if (options.memoryOptimized !== undefined) {
-      formData.append('memory_optimized', options.memoryOptimized.toString());
-    }
-
-    const response = await fetch(`${this.baseUrl}/api/diarization/upload-pyannote31`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || `Pyannote 3.1 upload failed: ${response.status}`);
-    }
-
-    return response.json();
+    // Cloud Run と同じフローを使用（pyannote 3.1 がデフォルト）
+    return this.uploadAndDiarize(file, options);
   }
 
   /**
