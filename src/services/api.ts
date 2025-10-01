@@ -3,7 +3,7 @@
  * Integrates with Python FastAPI backend
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://audio-processing-api-576239773901.asia-northeast1.run.app';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://audio-processing-api-576239773901.us-west1.run.app';
 
 export interface SignedUrlResponse {
   signed_url: string;
