@@ -213,10 +213,10 @@ export const usePipelineStore = create<PipelineState>()(
           const hasPyannote31 = pyannoteModules.some(m => m.definitionId === 'diar-pyannote31');
           
           // Collect parameters from pyannote modules
-          let job;
+          let result;
           
           if (hasPyannote31) {
-            // Use pyannote 3.1 API with enhanced parameters
+            // Use pyannote 3.1 LOCAL processing (Cloud Run constant residence)
             const options: Pyannote31Options = {};
             
             pyannoteModules.forEach(module => {
@@ -245,14 +245,25 @@ export const usePipelineStore = create<PipelineState>()(
             updateExecutionProgress(inputModule.id, 25);
             pyannoteModules.forEach(m => updateExecutionProgress(m.id, 10));
             
-            // Execute pyannote 3.1 diarization
-            console.log('Starting pyannote 3.1 diarization with options:', options);
-            job = await audioProcessingAPI.uploadAndDiarizePyannote31(inputFile, {
-              ...options,
-              waitForCompletion: true
-            });
+            // Execute pyannote 3.1 LOCAL processing (即座に処理開始！)
+            console.log('Starting pyannote 3.1 LOCAL processing with options:', options);
+            
+            // Update progress: processing
+            updateExecutionProgress(inputModule.id, 50);
+            pyannoteModules.forEach(m => updateExecutionProgress(m.id, 50));
+            
+            // ローカル処理（Job待ちゼロ！）
+            console.log('Calling processLocal with options:', options);
+            result = await audioProcessingAPI.processLocal(inputFile, options);
+            
+            // Update final progress
+            updateExecutionProgress(inputModule.id, 100);
+            pyannoteModules.forEach(m => updateExecutionProgress(m.id, 100));
+            
+            console.log('Diarization completed:', result);
+            
           } else {
-            // Use standard pyannote API
+            // Use standard pyannote API (Vertex AI Custom Jobs)
             const options: DiarizationOptions = {};
             
             pyannoteModules.forEach(module => {
@@ -272,28 +283,28 @@ export const usePipelineStore = create<PipelineState>()(
             
             // Execute standard diarization (Cloud Run + Vertex AI)
             console.log('Starting Cloud Run diarization with options:', options);
-            job = await audioProcessingAPI.uploadAndDiarize(inputFile, options);
+            const job = await audioProcessingAPI.uploadAndDiarize(inputFile, options);
+            
+            // Update progress: processing
+            updateExecutionProgress(inputModule.id, 50);
+            pyannoteModules.forEach(m => updateExecutionProgress(m.id, 50));
+            
+            // Wait for completion and get results
+            result = await audioProcessingAPI.waitForJobCompletion(job.job_id, {
+              onStatusUpdate: (status) => {
+                console.log('Job status update:', status);
+                const progress = status.status === 'RUNNING' ? 75 : 
+                               status.status === 'SUCCEEDED' ? 100 : 50;
+                pyannoteModules.forEach(m => updateExecutionProgress(m.id, progress));
+              }
+            });
+            
+            // Update final progress
+            updateExecutionProgress(inputModule.id, 100);
+            pyannoteModules.forEach(m => updateExecutionProgress(m.id, 100));
+            
+            console.log('Diarization completed:', result);
           }
-          
-          // Update progress: processing
-          updateExecutionProgress(inputModule.id, 50);
-          pyannoteModules.forEach(m => updateExecutionProgress(m.id, 50));
-          
-          // Wait for completion and get results
-          const result = await audioProcessingAPI.waitForJobCompletion(job.job_id, {
-            onStatusUpdate: (status) => {
-              console.log('Job status update:', status);
-              const progress = status.status === 'RUNNING' ? 75 : 
-                             status.status === 'SUCCEEDED' ? 100 : 50;
-              pyannoteModules.forEach(m => updateExecutionProgress(m.id, progress));
-            }
-          });
-          
-          // Update final progress
-          updateExecutionProgress(inputModule.id, 100);
-          pyannoteModules.forEach(m => updateExecutionProgress(m.id, 100));
-          
-          console.log('Diarization completed:', result);
           
           // Update module status to completed
           set(state => ({

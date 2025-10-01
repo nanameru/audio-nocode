@@ -321,7 +321,7 @@ export class AudioProcessingAPI {
    */
   async processLocal(
     file: File,
-    options: DiarizationOptions = {}
+    options: Pyannote31Options = {}
   ): Promise<{ status: string; output_gs_uri: string; speaker_count: number; segment_count: number }> {
     // 1) Get signed URL
     const { signed_url, gs_uri } = await this.getSignedUrl(file.name, file.type);
@@ -330,6 +330,7 @@ export class AudioProcessingAPI {
     await this.uploadToGCS(file, signed_url);
 
     // 3) Start local processing
+    console.log('processLocal: Sending request with useGpu =', options.useGpu);
     const response = await fetch(`${this.baseUrl}/process-local`, {
       method: 'POST',
       headers: {
@@ -337,6 +338,7 @@ export class AudioProcessingAPI {
       },
       body: JSON.stringify({
         input_gs_uri: gs_uri,
+        use_gpu: options.useGpu !== undefined ? options.useGpu : true, // デフォルトはGPU
       }),
     });
 

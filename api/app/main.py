@@ -1,5 +1,8 @@
 import os
 import asyncio
+import json
+import tempfile
+import subprocess
 from datetime import timedelta
 from typing import Optional
 from fastapi import FastAPI, HTTPException
@@ -230,3 +233,170 @@ async def get_job_status(job_id: str):
         }
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# ===== Cloud Run 常駐版: pyannote.audio を内蔵 =====
+
+# グローバル変数でpyannoteパイプラインを保持
+pipeline = None
+
+@app.on_event("startup")
+async def startup_event():
+    """起動時にpyannoteパイプラインを初期化（1回だけ）"""
+    global pipeline
+    print("🚀 Initializing pyannote.audio pipeline...")
+    
+    try:
+        from pyannote.audio import Pipeline
+        import torch
+        
+        # Hugging Face トークンを取得
+        token = HF_TOKEN_SECRET
+        if not token:
+            print("⚠️  HF_TOKEN not found, pipeline initialization skipped")
+            return
+        
+        # パイプラインをロード
+        pipeline = Pipeline.from_pretrained(
+            "pyannote/speaker-diarization-3.1",
+            use_auth_token=token
+        )
+        
+        # GPU/CPU自動選択
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        pipeline.to(device)
+        
+        print(f"✅ Pipeline loaded on {device}")
+        
+    except Exception as e:
+        print(f"❌ Failed to initialize pipeline: {e}")
+        pipeline = None
+
+
+class ProcessLocalRequest(BaseModel):
+    input_gs_uri: str
+    output_gs_uri: Optional[str] = None
+    use_gpu: bool = True  # デフォルトはGPU
+
+
+@app.post("/process-local")
+async def process_local(request: ProcessLocalRequest):
+    """Cloud Run内で直接処理（Vertex AI不要、Job待ちゼロ）"""
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized")
+    
+    # デバッグログ：use_gpu の値を確認
+    print(f"🔍 DEBUG: process-local use_gpu = {request.use_gpu}")
+    
+    audio_path = None
+    original_audio_path = None
+    
+    try:
+        # 元のファイル名と拡張子を取得
+        original_filename = request.input_gs_uri.split("/")[-1]
+        file_extension = os.path.splitext(original_filename)[1] or ".wav"
+        base_name = os.path.splitext(original_filename)[0]
+        
+        # 出力先が未指定なら自動生成
+        if not request.output_gs_uri:
+            request.output_gs_uri = f"gs://{BUCKET}/outputs/{base_name}.json"
+        
+        print(f"🎯 Processing {request.input_gs_uri} locally...")
+        print(f"📁 File format: {file_extension}")
+        
+        # 1. GCSからファイルをダウンロード
+        bucket = storage_client.bucket(BUCKET)
+        blob_path = request.input_gs_uri.replace(f"gs://{BUCKET}/", "")
+        blob = bucket.blob(blob_path)
+        
+        # 2. 一時ファイルに保存（元の拡張子を使用）
+        with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as tmp_file:
+            blob.download_to_filename(tmp_file.name)
+            original_audio_path = tmp_file.name
+        
+        print(f"📥 Downloaded to {original_audio_path}")
+        
+        # 3. 必要に応じてwavに変換
+        if file_extension.lower() not in ['.wav', '.wave']:
+            print(f"🔄 Converting {file_extension} to WAV...")
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as wav_file:
+                wav_path = wav_file.name
+            
+            # ffmpegで変換
+            result_ffmpeg = subprocess.run(
+                ['ffmpeg', '-i', original_audio_path, '-ar', '16000', '-ac', '1', wav_path, '-y'],
+                capture_output=True,
+                text=True
+            )
+            
+            if result_ffmpeg.returncode != 0:
+                print(f"❌ FFmpeg error: {result_ffmpeg.stderr}")
+                raise Exception(f"Failed to convert audio: {result_ffmpeg.stderr}")
+            
+            audio_path = wav_path
+            print(f"✅ Converted to {wav_path}")
+        else:
+            audio_path = original_audio_path
+        
+        # 4. GPU/CPU切り替え
+        import torch
+        target_device = torch.device("cuda" if request.use_gpu and torch.cuda.is_available() else "cpu")
+        current_device = next(pipeline.parameters()).device if hasattr(pipeline, 'parameters') else None
+        
+        print(f"🎯 Target device: {target_device}")
+        print(f"📍 Current device: {current_device}")
+        
+        # デバイスが異なる場合は移動
+        if current_device != target_device:
+            print(f"🔄 Moving pipeline to {target_device}...")
+            pipeline.to(target_device)
+        
+        # 5. pyannote.audio で処理
+        print(f"🎙️  Running speaker diarization on {target_device}...")
+        diarization = pipeline(audio_path)
+        
+        # 6. 結果を整形
+        result = []
+        for turn, _, speaker in diarization.itertracks(yield_label=True):
+            result.append({
+                "start": turn.start,
+                "end": turn.end,
+                "speaker": speaker
+            })
+        
+        speaker_count = len(set(item["speaker"] for item in result))
+        print(f"✅ Found {speaker_count} speakers, {len(result)} segments")
+        
+        # 7. GCSに結果をアップロード
+        output_blob_path = request.output_gs_uri.replace(f"gs://{BUCKET}/", "")
+        output_blob = bucket.blob(output_blob_path)
+        output_blob.upload_from_string(
+            json.dumps(result, indent=2),
+            content_type="application/json"
+        )
+        
+        # 8. 一時ファイル削除
+        os.unlink(audio_path)
+        if audio_path != original_audio_path:
+            os.unlink(original_audio_path)
+        
+        print(f"📤 Results uploaded to {request.output_gs_uri}")
+        
+        return {
+            "status": "success",
+            "output_gs_uri": request.output_gs_uri,
+            "speaker_count": speaker_count,
+            "segment_count": len(result)
+        }
+        
+    except Exception as e:
+        print(f"❌ Error during processing: {e}")
+        # エラー時も一時ファイルを削除
+        try:
+            if audio_path:
+                os.unlink(audio_path)
+            if original_audio_path and audio_path != original_audio_path:
+                os.unlink(original_audio_path)
+        except:
+            pass
+        raise HTTPException(status_code=500, detail=str(e))
