@@ -290,7 +290,7 @@ export class AudioProcessingAPI {
       onStatusUpdate?: (status: DiarizationJob) => void;
     } = {}
   ): Promise<DiarizationJob> {
-    const { pollInterval = 5000, maxWaitTime = 300000, onStatusUpdate } = options;
+    const { pollInterval = 5000, maxWaitTime = 1800000, onStatusUpdate } = options; // 30分（CPUモード対応）
     const startTime = Date.now();
 
     while (true) {
