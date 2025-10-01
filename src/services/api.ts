@@ -3,7 +3,7 @@
  * Integrates with Python FastAPI backend
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://meeting-api-576239773901.asia-northeast1.run.app';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://audio-processing-api-576239773901.asia-northeast1.run.app';
 
 export interface SignedUrlResponse {
   signed_url: string;
@@ -313,6 +313,39 @@ export class AudioProcessingAPI {
       // Wait before next poll
       await new Promise(resolve => setTimeout(resolve, pollInterval));
     }
+  }
+
+  /**
+   * Process audio locally in Cloud Run (no Vertex AI Custom Jobs)
+   * 即座に処理開始、Job待ち時間ゼロ
+   */
+  async processLocal(
+    file: File,
+    options: DiarizationOptions = {}
+  ): Promise<{ status: string; output_gs_uri: string; speaker_count: number; segment_count: number }> {
+    // 1) Get signed URL
+    const { signed_url, gs_uri } = await this.getSignedUrl(file.name, file.type);
+
+    // 2) Upload to GCS
+    await this.uploadToGCS(file, signed_url);
+
+    // 3) Start local processing
+    const response = await fetch(`${this.baseUrl}/process-local`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        input_gs_uri: gs_uri,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || `Local processing failed: ${response.status}`);
+    }
+
+    return response.json();
   }
 }
 
