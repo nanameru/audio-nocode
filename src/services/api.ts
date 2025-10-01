@@ -39,11 +39,11 @@ export interface DiarizationOptions {
   turnLevelConfidence?: boolean;
   exclusive?: boolean;
   confidence?: boolean;
+  useGpu?: boolean;
 }
 
 export interface Pyannote31Options extends DiarizationOptions {
-  // pyannote 3.1 specific parameters
-  useGpu?: boolean;
+  // pyannote 3.1 specific parameters (useGpu is inherited from DiarizationOptions)
   progressMonitoring?: boolean;
   memoryOptimized?: boolean;
   enhancedFeatures?: boolean;
