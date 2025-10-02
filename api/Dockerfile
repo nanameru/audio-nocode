@@ -1,7 +1,14 @@
-FROM python:3.10-slim
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
 
-# ffmpeg をインストール（pyannote.audio に必要）
-RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+# Python 3.10 と必要なパッケージをインストール
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# python3をpythonとして使用
+RUN ln -s /usr/bin/python3 /usr/bin/python
 
 WORKDIR /app
 

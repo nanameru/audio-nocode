@@ -7,7 +7,8 @@ echo ""
 gcloud logging read \
   "resource.type=cloud_run_revision 
    AND resource.labels.service_name=audio-processing-api 
-   AND (textPayload=~\"DEBUG\" OR textPayload=~\"Target device\" OR textPayload=~\"Running speaker\")" \
+   AND resource.labels.location=us-central1
+   AND (textPayload=~\"DEBUG\" OR textPayload=~\"Target device\" OR textPayload=~\"Running speaker\" OR textPayload=~\"Pipeline loaded\")" \
   --limit=50 \
   --format="table(timestamp,textPayload)" \
   --project=encoded-victory-440718-k6
