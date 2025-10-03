@@ -346,13 +346,18 @@ async def process_local(request: ProcessLocalRequest):
         # 4. GPU/CPU切り替え
         import torch
         target_device = torch.device("cuda" if request.use_gpu and torch.cuda.is_available() else "cpu")
-        current_device = next(pipeline.parameters()).device if hasattr(pipeline, 'parameters') else None
+        
+        # 現在のデバイスを安全に取得
+        try:
+            current_device = next(iter(pipeline.parameters())).device
+        except (StopIteration, TypeError, AttributeError):
+            current_device = None
         
         print(f"🎯 Target device: {target_device}")
         print(f"📍 Current device: {current_device}")
         
-        # デバイスが異なる場合は移動
-        if current_device != target_device:
+        # デバイスが異なる場合は移動（初回はNoneなので必ず移動）
+        if current_device is None or current_device != target_device:
             print(f"🔄 Moving pipeline to {target_device}...")
             pipeline.to(target_device)
         
@@ -360,14 +365,37 @@ async def process_local(request: ProcessLocalRequest):
         print(f"🎙️  Running speaker diarization on {target_device}...")
         diarization = pipeline(audio_path)
         
+        # デバッグ: diarizationの型を確認
+        print(f"🔍 DEBUG: diarization type = {type(diarization)}")
+        print(f"🔍 DEBUG: diarization has itertracks = {hasattr(diarization, 'itertracks')}")
+        print(f"🔍 DEBUG: diarization dir = {dir(diarization)}")
+        
         # 6. 結果を整形
         result = []
-        for turn, _, speaker in diarization.itertracks(yield_label=True):
-            result.append({
-                "start": turn.start,
-                "end": turn.end,
-                "speaker": speaker
-            })
+        try:
+            # 標準的な方法
+            for turn, _, speaker in diarization.itertracks(yield_label=True):
+                result.append({
+                    "start": turn.start,
+                    "end": turn.end,
+                    "speaker": speaker
+                })
+        except (TypeError, AttributeError) as e:
+            print(f"⚠️  Standard iteration failed: {e}")
+            print(f"🔍 Attempting alternative iteration...")
+            
+            # diarizationがdictの場合の処理
+            if isinstance(diarization, dict):
+                print(f"🔍 diarization is dict with keys: {diarization.keys()}")
+                # dictの場合、直接イテレート
+                if 'segments' in diarization:
+                    for seg in diarization['segments']:
+                        result.append(seg)
+                else:
+                    raise Exception(f"Unknown dict structure: {diarization}")
+            else:
+                # その他の場合
+                raise Exception(f"Cannot iterate over type {type(diarization)}: {e}")
         
         speaker_count = len(set(item["speaker"] for item in result))
         print(f"✅ Found {speaker_count} speakers, {len(result)} segments")

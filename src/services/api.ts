@@ -3,7 +3,11 @@
  * Integrates with Python FastAPI backend
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://audio-processing-api-576239773901.us-central1.run.app';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+
+if (!API_BASE_URL) {
+  throw new Error('NEXT_PUBLIC_API_URL environment variable is not set. Please check your .env.local file.');
+}
 
 export interface SignedUrlResponse {
   signed_url: string;
