@@ -39,6 +39,9 @@ interface PipelineState {
   updateModulePosition: (moduleId: string, position: { x: number; y: number }) => void;
   updateModuleParameters: (moduleId: string, parameters: Record<string, string | number | boolean>) => void;
   selectModule: (moduleId: string | null) => void;
+  reorderModule: (moduleId: string, newIndex: number) => void;
+  moveModuleUp: (moduleId: string) => void;
+  moveModuleDown: (moduleId: string) => void;
   
   // Connection actions
   addConnection: (connection: Omit<Connection, 'id'>) => void;
@@ -175,6 +178,40 @@ export const usePipelineStore = create<PipelineState>()(
 
       selectModule: (moduleId: string | null) => {
         set({ selectedModuleId: moduleId });
+      },
+
+      reorderModule: (moduleId: string, newIndex: number) => {
+        set(state => {
+          const modules = [...state.modules];
+          const currentIndex = modules.findIndex(m => m.id === moduleId);
+          
+          if (currentIndex === -1 || newIndex < 0 || newIndex >= modules.length) {
+            return state;
+          }
+          
+          const [module] = modules.splice(currentIndex, 1);
+          modules.splice(newIndex, 0, module);
+          
+          return { modules };
+        });
+      },
+
+      moveModuleUp: (moduleId: string) => {
+        const { modules, reorderModule } = get();
+        const currentIndex = modules.findIndex(m => m.id === moduleId);
+        
+        if (currentIndex > 0) {
+          reorderModule(moduleId, currentIndex - 1);
+        }
+      },
+
+      moveModuleDown: (moduleId: string) => {
+        const { modules, reorderModule } = get();
+        const currentIndex = modules.findIndex(m => m.id === moduleId);
+        
+        if (currentIndex < modules.length - 1 && currentIndex !== -1) {
+          reorderModule(moduleId, currentIndex + 1);
+        }
       },
 
       // Connection actions
