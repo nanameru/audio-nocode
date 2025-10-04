@@ -38,7 +38,7 @@ export function Header() {
         // In a real implementation, this would come from a file input dialog
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = 'audio/*';
+        input.accept = 'audio/*,video/*';
         input.onchange = async (e) => {
           const file = (e.target as HTMLInputElement).files?.[0];
           if (file) {
