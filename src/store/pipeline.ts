@@ -42,6 +42,8 @@ interface PipelineState {
   reorderModule: (moduleId: string, newIndex: number) => void;
   moveModuleUp: (moduleId: string) => void;
   moveModuleDown: (moduleId: string) => void;
+  swapModulePositions: (moduleId1: string, moduleId2: string) => void;
+  autoArrangeModules: () => void;
   
   // Connection actions
   addConnection: (connection: Omit<Connection, 'id'>) => void;
@@ -212,6 +214,71 @@ export const usePipelineStore = create<PipelineState>()(
         if (currentIndex < modules.length - 1 && currentIndex !== -1) {
           reorderModule(moduleId, currentIndex + 1);
         }
+      },
+
+      swapModulePositions: (moduleId1: string, moduleId2: string) => {
+        set(state => {
+          const module1 = state.modules.find(m => m.id === moduleId1);
+          const module2 = state.modules.find(m => m.id === moduleId2);
+          
+          if (!module1 || !module2) return state;
+          
+          const pos1 = { ...module1.position };
+          const pos2 = { ...module2.position };
+          
+          return {
+            modules: state.modules.map(m => {
+              if (m.id === moduleId1) return { ...m, position: pos2 };
+              if (m.id === moduleId2) return { ...m, position: pos1 };
+              return m;
+            })
+          };
+        });
+      },
+
+      autoArrangeModules: () => {
+        set(state => {
+          const { modules } = state;
+          if (modules.length === 0) return state;
+
+          // グラフの構造を分析して自動整列
+          const arranged = [...modules];
+          
+          // タイプ別にグループ化
+          const typeGroups: Record<string, ModuleInstance[]> = {
+            input: [],
+            vad: [],
+            processing: [],
+            output: [],
+          };
+          
+          arranged.forEach(module => {
+            const group = typeGroups[module.type] || typeGroups.processing;
+            group.push(module);
+          });
+          
+          // 各グループを配置
+          let currentY = 100;
+          const newModules = [];
+          
+          for (const [type, groupModules] of Object.entries(typeGroups)) {
+            if (groupModules.length === 0) continue;
+            
+            groupModules.forEach((module, index) => {
+              newModules.push({
+                ...module,
+                position: {
+                  x: 200 + index * 300,
+                  y: currentY,
+                }
+              });
+            });
+            
+            currentY += 200;
+          }
+          
+          return { modules: newModules };
+        });
       },
 
       // Connection actions
