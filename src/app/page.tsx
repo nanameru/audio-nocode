@@ -24,9 +24,11 @@ export default function Home() {
       <Header />
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Module Library - Hidden on mobile */}
-        <ModuleLibrary className="w-80 h-full flex-shrink-0 hidden lg:block" />
+        <div className="w-80 flex-shrink-0 hidden lg:flex flex-col">
+          <ModuleLibrary className="flex-1 min-h-0" />
+        </div>
 
         {/* Pipeline Canvas */}
         <div className="flex-1 flex flex-col min-w-0">

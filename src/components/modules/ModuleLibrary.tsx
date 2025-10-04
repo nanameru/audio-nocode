@@ -105,7 +105,7 @@ export function ModuleLibrary({ className }: ModuleLibraryProps) {
   };
 
   return (
-    <div className={cn('h-full bg-white border-r border-gray-200 flex flex-col', className)}>
+    <div className={cn('h-full max-h-full bg-white border-r border-gray-200 flex flex-col overflow-hidden', className)}>
       {/* Header */}
       <div className="p-4 border-b border-gray-100 flex-shrink-0">
         <h2 className="text-sm font-semibold text-gray-900 mb-3">モジュールライブラリ</h2>
