@@ -449,10 +449,11 @@ export const usePipelineStore = create<PipelineState>()(
             
             // 結果を保存（pyannoteモジュールとJSON出力ノードに）
             const saveResult = (moduleId: string) => {
-              if (result.output_gs_uri && result.speaker_count !== undefined && result.segment_count !== undefined) {
+              // ローカル処理では output_gs_uri が空文字列の場合がある
+              if (result.speaker_count !== undefined && result.segment_count !== undefined) {
                 get().setDiarizationResult(moduleId, {
                   status: result.status,
-                  output_gs_uri: result.output_gs_uri,
+                  output_gs_uri: result.output_gs_uri || '', // 空でもOK
                   speaker_count: result.speaker_count,
                   segment_count: result.segment_count
                 });
