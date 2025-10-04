@@ -1,18 +1,68 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { DiarizationResult } from '@/types/pipeline';
-import { Users, MessageSquare, Clock, CheckCircle, Download } from 'lucide-react';
+import { Users, MessageSquare, Clock, CheckCircle, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { audioProcessingAPI } from '@/services/api';
 
 interface DiarizationResultsProps {
   result: DiarizationResult;
 }
 
+interface Segment {
+  start: number;
+  end: number;
+  speaker: string;
+}
+
 export function DiarizationResults({ result }: DiarizationResultsProps) {
-  const handleDownload = () => {
-    // GCS URLから結果をダウンロード
-    console.log('Downloading results from:', result.output_gs_uri);
-    // TODO: 実装 - APIを通じてGCSからデータを取得
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [segments, setSegments] = useState<Segment[]>([]);
+  const [isLoadingSegments, setIsLoadingSegments] = useState(false);
+  const [showSegments, setShowSegments] = useState(false);
+
+  const handleDownload = async () => {
+    try {
+      setIsDownloading(true);
+      
+      // GCS URLから結果をダウンロード
+      const data = await audioProcessingAPI.downloadResult(result.output_gs_uri);
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `diarization_result_${new Date().getTime()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download results:', error);
+      alert('結果のダウンロードに失敗しました。もう一度お試しください。');
+    } finally {
+      setIsDownloading(false);
+    }
   };
+
+  useEffect(() => {
+    const loadSegments = async () => {
+      try {
+        setIsLoadingSegments(true);
+        const data = await audioProcessingAPI.downloadResult(result.output_gs_uri);
+        
+        if (data.segments && Array.isArray(data.segments)) {
+          setSegments(data.segments);
+        }
+      } catch (error) {
+        console.error('Failed to load segments:', error);
+      } finally {
+        setIsLoadingSegments(false);
+      }
+    };
+
+    loadSegments();
+  }, [result.output_gs_uri]);
 
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleString('ja-JP', {
@@ -23,6 +73,12 @@ export function DiarizationResults({ result }: DiarizationResultsProps) {
       minute: '2-digit',
       second: '2-digit'
     });
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = (seconds % 60).toFixed(2);
+    return `${mins}:${secs.padStart(5, '0')}`;
   };
 
   return (
@@ -76,13 +132,71 @@ export function DiarizationResults({ result }: DiarizationResultsProps) {
         </div>
       </div>
 
+      {/* セグメント詳細 */}
+      <div className="border border-gray-200 rounded-md overflow-hidden">
+        <button
+          onClick={() => setShowSegments(!showSegments)}
+          className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-gray-600" />
+            <span className="text-sm font-medium text-gray-900">セグメント詳細</span>
+            {isLoadingSegments && (
+              <span className="text-xs text-gray-500">(読み込み中...)</span>
+            )}
+          </div>
+          {showSegments ? (
+            <ChevronUp className="h-4 w-4 text-gray-500" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-gray-500" />
+          )}
+        </button>
+        
+        {showSegments && segments.length > 0 && (
+          <div className="max-h-96 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100 border-b border-gray-200 sticky top-0">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">#</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">話者</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">開始</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">終了</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">時間</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {segments.map((segment, index) => {
+                  const duration = segment.end - segment.start;
+                  return (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 text-xs text-gray-500">{index + 1}</td>
+                      <td className="px-3 py-2 text-xs font-medium text-gray-900">{segment.speaker}</td>
+                      <td className="px-3 py-2 text-xs text-gray-600 font-mono">{formatTime(segment.start)}</td>
+                      <td className="px-3 py-2 text-xs text-gray-600 font-mono">{formatTime(segment.end)}</td>
+                      <td className="px-3 py-2 text-xs text-gray-500">{duration.toFixed(2)}s</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        
+        {showSegments && segments.length === 0 && !isLoadingSegments && (
+          <div className="px-4 py-8 text-center text-sm text-gray-500">
+            セグメントデータが見つかりませんでした
+          </div>
+        )}
+      </div>
+
       {/* ダウンロードボタン */}
       <button
         onClick={handleDownload}
-        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors text-sm font-medium"
+        disabled={isDownloading}
+        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <Download className="h-4 w-4" />
-        詳細データをダウンロード
+        {isDownloading ? 'ダウンロード中...' : '詳細データをダウンロード'}
       </button>
 
       {/* 説明 */}
