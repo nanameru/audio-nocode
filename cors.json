@@ -1,8 +1,13 @@
 [
   {
-    "origin": ["http://localhost:3000", "http://localhost:3001"],
-    "method": ["PUT","GET","HEAD"],
-    "responseHeader": ["Content-Type"],
+    "origin": [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "https://audio-nocode.vercel.app",
+      "https://*.vercel.app"
+    ],
+    "method": ["PUT","GET","HEAD","POST"],
+    "responseHeader": ["Content-Type", "x-goog-resumable"],
     "maxAgeSeconds": 3600
   }
 ]
