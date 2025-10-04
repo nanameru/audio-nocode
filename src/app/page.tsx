@@ -39,7 +39,7 @@ export default function Home() {
             w-full sm:w-96 lg:w-80 
             flex-shrink-0 
             h-full
-            ${selectedModuleId ? 'block' : 'hidden lg:block'}
+            ${selectedModuleId ? 'fixed inset-0 z-50 lg:relative lg:z-auto' : 'hidden lg:block'}
           `} 
         />
       </div>
@@ -47,7 +47,7 @@ export default function Home() {
       {/* Mobile FAB (Floating Action Button) */}
       <button
         onClick={() => setIsMobileMenuOpen(true)}
-        className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg flex items-center justify-center z-40 transition-transform active:scale-95"
+        className={`lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg flex items-center justify-center z-40 transition-transform active:scale-95 ${selectedModuleId ? 'hidden' : ''}`}
       >
         <Plus className="h-6 w-6" />
       </button>
