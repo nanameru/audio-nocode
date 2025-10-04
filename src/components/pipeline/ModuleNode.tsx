@@ -12,7 +12,7 @@ interface ModuleNodeProps extends NodeProps {
   data: ModuleInstance;
 }
 
-function StatusIndicator({ status, progress }: { status: ModuleInstance['status']; progress?: number }) {
+function StatusIndicator({ status }: { status: ModuleInstance['status']; progress?: number }) {
   switch (status) {
     case 'running':
       return (
@@ -52,7 +52,7 @@ function ProgressBar({ progress }: { progress: number }) {
   );
 }
 
-export const ModuleNode = memo(({ data, selected }: ModuleNodeProps) => {
+const ModuleNodeComponent = ({ data }: ModuleNodeProps) => {
   const { selectedModuleId, removeModule, selectModule } = usePipelineStore();
   const definition = getModuleDefinition(data.definitionId);
   
@@ -160,4 +160,8 @@ export const ModuleNode = memo(({ data, selected }: ModuleNodeProps) => {
       )}
     </div>
   );
-});
+};
+
+ModuleNodeComponent.displayName = 'ModuleNode';
+
+export const ModuleNode = memo(ModuleNodeComponent);

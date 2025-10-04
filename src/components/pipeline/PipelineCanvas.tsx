@@ -4,7 +4,6 @@ import React, { useCallback, useRef, useEffect, useState } from 'react';
 import ReactFlow, {
   Node,
   Edge,
-  addEdge,
   useNodesState,
   useEdgesState,
   useReactFlow,
@@ -30,7 +29,7 @@ const nodeTypes: NodeTypes = {
 };
 
 const edgeTypes: EdgeTypes = {
-  addNode: AddNodeEdge as any,
+  addNode: AddNodeEdge as unknown as EdgeTypes[keyof EdgeTypes],
 };
 
 interface PipelineCanvasProps {
@@ -129,51 +128,6 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
   const onPaneClick = useCallback(() => {
     selectModule(null);
   }, [selectModule]);
-
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    console.log('🎯 Drag over canvas');
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const onDrop = useCallback(
-    (event: React.DragEvent) => {
-      console.log('🎯 Drop event triggered!');
-      event.preventDefault();
-
-      const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect();
-      if (!reactFlowBounds) {
-        console.error('❌ No reactFlowBounds');
-        return;
-      }
-
-      try {
-        const rawData = event.dataTransfer.getData('application/json');
-        console.log('📦 Raw drop data:', rawData);
-        
-        const data = JSON.parse(rawData);
-        console.log('📦 Parsed drop data:', data);
-        
-        if (data.type === 'module' && data.definitionId) {
-          const position = screenToFlowPosition({
-            x: event.clientX - reactFlowBounds.left,
-            y: event.clientY - reactFlowBounds.top,
-          });
-
-          console.log('📍 Calculated position:', position);
-          console.log('🔧 Adding module:', data.definitionId);
-          
-          addModule(data.definitionId, position);
-          console.log('✅ Module added successfully!');
-        } else {
-          console.warn('⚠️ Invalid drop data:', data);
-        }
-      } catch (error) {
-        console.error('❌ Error handling drop:', error);
-      }
-    },
-    [screenToFlowPosition, addModule]
-  );
 
   const onEdgeClick = useCallback(
     (event: React.MouseEvent, edge: Edge) => {
@@ -290,9 +244,9 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
         <MiniMap
           className="bg-white border border-gray-200 rounded-lg shadow-lg"
           nodeColor={(node) => {
-            const module = modules.find(m => m.id === node.id);
-            if (!module) return '#6b7280';
-            const definition = getModuleDefinition(module.definitionId);
+            const moduleInstance = modules.find(m => m.id === node.id);
+            if (!moduleInstance) return '#6b7280';
+            const definition = getModuleDefinition(moduleInstance.definitionId);
             return definition?.color || '#6b7280';
           }}
         />

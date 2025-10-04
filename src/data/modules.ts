@@ -874,7 +874,7 @@ export const moduleDefinitions: ModuleDefinition[] = [
         label: '話者数（固定）',
         description: '話者数が既知の場合に指定（最適化される）',
         tooltip: '正確な話者数が分かっている場合に指定すると、分離精度が向上します。電話会議（2人）やインタビュー（既知の人数）に最適です。',
-        default: null,
+        default: undefined,
         min: 1,
         max: 20
       },
@@ -941,7 +941,7 @@ export const moduleDefinitions: ModuleDefinition[] = [
         label: '正確な話者数',
         description: '話者数が分かっている場合に指定（優先度最高）',
         tooltip: '正確な話者数が分かっている場合に指定すると、分離精度が大幅に向上します。電話会議（2人）、インタビュー（既知の人数）、会議（参加者数既知）に最適です。',
-        default: null,
+        default: undefined,
         min: 1,
         max: 20
       },

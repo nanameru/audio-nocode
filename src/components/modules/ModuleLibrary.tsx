@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Search, ChevronDown, ChevronRight } from 'lucide-react';
 import { getModulesByType, getAllModuleTypes, getModuleTypeLabel, getModuleTypeIcon } from '@/data/modules';
-import { ModuleDefinition } from '@/types/pipeline';
+import { ModuleDefinition, ModuleType } from '@/types/pipeline';
 import { cn } from '@/lib/utils';
 
 interface ModuleLibraryProps {
@@ -126,7 +126,7 @@ export function ModuleLibrary({ className }: ModuleLibraryProps) {
       {/* Module Categories */}
       <div className="flex-1 overflow-y-auto p-3">
         {allModuleTypes.map((moduleType) => {
-          const modules = getModulesByType(moduleType as any);
+          const modules = getModulesByType(moduleType as ModuleType);
           const filteredModules = filterModules(modules);
           
           if (filteredModules.length === 0) return null;

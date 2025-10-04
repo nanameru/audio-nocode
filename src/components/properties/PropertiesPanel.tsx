@@ -18,8 +18,8 @@ interface PropertiesPanelProps {
 
 interface ParameterFieldProps {
   parameter: ModuleParameter;
-  value: any;
-  onChange: (value: any) => void;
+  value: string | number | boolean;
+  onChange: (value: string | number | boolean) => void;
 }
 
 function ParameterField({ parameter, value, onChange }: ParameterFieldProps) {
@@ -31,7 +31,7 @@ function ParameterField({ parameter, value, onChange }: ParameterFieldProps) {
         return (
           <input
             type="text"
-            value={value || ''}
+            value={typeof value === 'string' ? value : ''}
             onChange={(e) => onChange(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             placeholder={description}
@@ -42,7 +42,7 @@ function ParameterField({ parameter, value, onChange }: ParameterFieldProps) {
         return (
           <input
             type="number"
-            value={value || ''}
+            value={typeof value === 'number' ? value : ''}
             onChange={(e) => onChange(Number(e.target.value))}
             min={min}
             max={max}
@@ -54,7 +54,7 @@ function ParameterField({ parameter, value, onChange }: ParameterFieldProps) {
       case 'select':
         return (
           <select
-            value={value || ''}
+            value={typeof value === 'string' || typeof value === 'number' ? value : ''}
             onChange={(e) => onChange(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           >
@@ -71,7 +71,7 @@ function ParameterField({ parameter, value, onChange }: ParameterFieldProps) {
           <div className="space-y-2">
             <input
               type="range"
-              value={value || min || 0}
+              value={typeof value === 'number' ? value : min || 0}
               onChange={(e) => onChange(Number(e.target.value))}
               min={min}
               max={max}
@@ -91,7 +91,7 @@ function ParameterField({ parameter, value, onChange }: ParameterFieldProps) {
           <label className="flex items-center cursor-pointer">
             <input
               type="checkbox"
-              checked={value || false}
+              checked={typeof value === 'boolean' ? value : false}
               onChange={(e) => onChange(e.target.checked)}
               className="sr-only"
             />
@@ -178,7 +178,7 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
     setActiveTab('properties');
   }, [selectedModuleId]);
 
-  const handleParameterChange = (parameterKey: string, value: any) => {
+  const handleParameterChange = (parameterKey: string, value: string | number | boolean) => {
     if (!selectedModule) return;
     
     updateModuleParameters(selectedModule.id, {
@@ -195,7 +195,9 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
     if (!selectedModule || !definition) return;
     
     const defaultParameters = Object.fromEntries(
-      Object.entries(definition.parameters).map(([key, param]) => [key, param.default])
+      Object.entries(definition.parameters)
+        .filter(([, param]) => param.default !== undefined)
+        .map(([key, param]) => [key, param.default as string | number | boolean])
     );
     
     updateModuleParameters(selectedModule.id, defaultParameters);

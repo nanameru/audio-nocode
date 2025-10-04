@@ -28,7 +28,7 @@ interface PipelineState {
   addModule: (definitionId: string, position: { x: number; y: number }) => void;
   removeModule: (moduleId: string) => void;
   updateModulePosition: (moduleId: string, position: { x: number; y: number }) => void;
-  updateModuleParameters: (moduleId: string, parameters: Record<string, any>) => void;
+  updateModuleParameters: (moduleId: string, parameters: Record<string, string | number | boolean>) => void;
   selectModule: (moduleId: string | null) => void;
   
   // Connection actions
@@ -125,7 +125,9 @@ export const usePipelineStore = create<PipelineState>()(
           icon: definition.icon,
           position,
           parameters: Object.fromEntries(
-            Object.entries(definition.parameters).map(([key, param]) => [key, param.default])
+            Object.entries(definition.parameters)
+              .filter(([, param]) => param.default !== undefined)
+              .map(([key, param]) => [key, param.default as string | number | boolean])
           ),
           status: 'idle'
         };
@@ -151,7 +153,7 @@ export const usePipelineStore = create<PipelineState>()(
         }));
       },
 
-      updateModuleParameters: (moduleId: string, parameters: Record<string, any>) => {
+      updateModuleParameters: (moduleId: string, parameters: Record<string, string | number | boolean>) => {
         set(state => ({
           modules: state.modules.map(m => 
             m.id === moduleId ? { ...m, parameters: { ...m.parameters, ...parameters } } : m
@@ -221,7 +223,7 @@ export const usePipelineStore = create<PipelineState>()(
           const hasPyannote31 = pyannoteModules.some(m => m.definitionId === 'diar-pyannote31');
           
           // Collect parameters from pyannote modules
-          let result;
+          let result: { status: string; output_gs_uri?: string; speaker_count?: number; segment_count?: number; output?: string };
           
           if (hasPyannote31) {
             // Use pyannote 3.1 LOCAL processing (Cloud Run constant residence)
@@ -231,22 +233,22 @@ export const usePipelineStore = create<PipelineState>()(
               const params = module.parameters;
               
               // Basic parameters
-              if (params.numSpeakers) options.numSpeakers = params.numSpeakers;
-              if (params.minSpeakers) options.minSpeakers = params.minSpeakers;
-              if (params.maxSpeakers) options.maxSpeakers = params.maxSpeakers;
-              if (params.turnLevelConfidence) options.turnLevelConfidence = params.turnLevelConfidence;
-              if (params.exclusive) options.exclusive = params.exclusive;
-              if (params.confidence) options.confidence = params.confidence;
+              if (typeof params.numSpeakers === 'number') options.numSpeakers = params.numSpeakers;
+              if (typeof params.minSpeakers === 'number') options.minSpeakers = params.minSpeakers;
+              if (typeof params.maxSpeakers === 'number') options.maxSpeakers = params.maxSpeakers;
+              if (typeof params.turnLevelConfidence === 'boolean') options.turnLevelConfidence = params.turnLevelConfidence;
+              if (typeof params.exclusive === 'boolean') options.exclusive = params.exclusive;
+              if (typeof params.confidence === 'boolean') options.confidence = params.confidence;
               
               // pyannote 3.1 specific parameters
-              if (params.useGpu !== undefined) options.useGpu = params.useGpu;
-              if (params.progressMonitoring !== undefined) options.progressMonitoring = params.progressMonitoring;
-              if (params.memoryOptimized !== undefined) options.memoryOptimized = params.memoryOptimized;
-              if (params.enhancedFeatures !== undefined) options.enhancedFeatures = params.enhancedFeatures;
-              if (params.voiceActivityDetection !== undefined) options.voiceActivityDetection = params.voiceActivityDetection;
-              if (params.minDuration !== undefined) options.minDuration = params.minDuration;
-              if (params.clusteringThreshold !== undefined) options.clusteringThreshold = params.clusteringThreshold;
-              if (params.batchSize) options.batchSize = params.batchSize;
+              if (typeof params.useGpu === 'boolean') options.useGpu = params.useGpu;
+              if (typeof params.progressMonitoring === 'boolean') options.progressMonitoring = params.progressMonitoring;
+              if (typeof params.memoryOptimized === 'boolean') options.memoryOptimized = params.memoryOptimized;
+              if (typeof params.enhancedFeatures === 'boolean') options.enhancedFeatures = params.enhancedFeatures;
+              if (typeof params.voiceActivityDetection === 'boolean') options.voiceActivityDetection = params.voiceActivityDetection;
+              if (typeof params.minDuration === 'number') options.minDuration = params.minDuration;
+              if (typeof params.clusteringThreshold === 'number') options.clusteringThreshold = params.clusteringThreshold;
+              if (typeof params.batchSize === 'string') options.batchSize = params.batchSize as 'small' | 'medium' | 'large' | 'auto';
             });
             
             // Update progress: uploading
@@ -272,12 +274,14 @@ export const usePipelineStore = create<PipelineState>()(
             
             // 結果を保存（pyannoteモジュールとJSON出力ノードに）
             const saveResult = (moduleId: string) => {
-              get().setDiarizationResult(moduleId, {
-                status: result.status,
-                output_gs_uri: result.output_gs_uri,
-                speaker_count: result.speaker_count,
-                segment_count: result.segment_count
-              });
+              if (result.output_gs_uri && result.speaker_count !== undefined && result.segment_count !== undefined) {
+                get().setDiarizationResult(moduleId, {
+                  status: result.status,
+                  output_gs_uri: result.output_gs_uri,
+                  speaker_count: result.speaker_count,
+                  segment_count: result.segment_count
+                });
+              }
             };
             
             pyannoteModules.forEach(module => saveResult(module.id));
@@ -292,13 +296,13 @@ export const usePipelineStore = create<PipelineState>()(
             
             pyannoteModules.forEach(module => {
               const params = module.parameters;
-              if (params.model) options.model = params.model;
-              if (params.numSpeakers) options.numSpeakers = params.numSpeakers;
-              if (params.minSpeakers) options.minSpeakers = params.minSpeakers;
-              if (params.maxSpeakers) options.maxSpeakers = params.maxSpeakers;
-              if (params.turnLevelConfidence) options.turnLevelConfidence = params.turnLevelConfidence;
-              if (params.exclusive) options.exclusive = params.exclusive;
-              if (params.confidence) options.confidence = params.confidence;
+              if (typeof params.model === 'string') options.model = params.model as 'precision-1' | 'precision-2' | 'precision-3';
+              if (typeof params.numSpeakers === 'number') options.numSpeakers = params.numSpeakers;
+              if (typeof params.minSpeakers === 'number') options.minSpeakers = params.minSpeakers;
+              if (typeof params.maxSpeakers === 'number') options.maxSpeakers = params.maxSpeakers;
+              if (typeof params.turnLevelConfidence === 'boolean') options.turnLevelConfidence = params.turnLevelConfidence;
+              if (typeof params.exclusive === 'boolean') options.exclusive = params.exclusive;
+              if (typeof params.confidence === 'boolean') options.confidence = params.confidence;
             });
             
             // Update progress: uploading
@@ -436,7 +440,7 @@ export const usePipelineStore = create<PipelineState>()(
         });
 
         const disconnectedModules = modules.filter(m => 
-          m.type === 'processing' && !connectedModules.has(m.id)
+          m.type !== 'input' && m.type !== 'output' && !connectedModules.has(m.id)
         );
 
         if (disconnectedModules.length > 0) {
@@ -499,15 +503,15 @@ export const usePipelineStore = create<PipelineState>()(
           }
           
           // Validate modules have required fields
-          for (const module of importedData.modules) {
-            if (!module.id || !module.definitionId || !module.name || !module.type) {
+          for (const importedModule of importedData.modules) {
+            if (!importedModule.id || !importedModule.definitionId || !importedModule.name || !importedModule.type) {
               throw new Error('モジュールデータが不正です');
             }
             
             // Check if module definition exists
-            const definition = getModuleDefinition(module.definitionId);
+            const definition = getModuleDefinition(importedModule.definitionId);
             if (!definition) {
-              console.warn(`Module definition not found for: ${module.definitionId}`);
+              console.warn(`Module definition not found for: ${importedModule.definitionId}`);
             }
           }
           
@@ -517,21 +521,21 @@ export const usePipelineStore = create<PipelineState>()(
             id: `pipeline-${Date.now()}`, // Generate new ID to avoid conflicts
             createdAt: new Date(),
             updatedAt: new Date(),
-            modules: importedData.modules.map((module: any) => ({
-              ...module,
+            modules: importedData.modules.map((mod: ModuleInstance) => ({
+              ...mod,
               id: `module-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Generate new IDs
               status: 'idle' as const
             })),
-            connections: importedData.connections.map((connection: any, index: number) => ({
+            connections: importedData.connections.map((connection: Connection, index: number) => ({
               ...connection,
               id: `connection-${Date.now()}-${index}` // Generate new IDs
             }))
           };
           
           // Update module IDs in connections
-          const moduleIdMap = new Map();
-          importedData.modules.forEach((originalModule: any, index: number) => {
-            moduleIdMap.set(originalModule.id, pipeline.modules[index].id);
+          const moduleIdMap = new Map<string, string>();
+          importedData.modules.forEach((originalMod: ModuleInstance, index: number) => {
+            moduleIdMap.set(originalMod.id, pipeline.modules[index].id);
           });
           
           pipeline.connections = pipeline.connections.map(connection => ({

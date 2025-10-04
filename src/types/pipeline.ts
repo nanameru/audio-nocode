@@ -9,7 +9,7 @@ export interface ModuleParameter {
   label: string;
   description?: string;
   tooltip?: string;
-  default?: any;
+  default?: string | number | boolean;
   options?: string[] | number[];
   min?: number;
   max?: number;
@@ -35,7 +35,7 @@ export interface ModuleInstance {
   type: ModuleType;
   icon: string;
   position: { x: number; y: number };
-  parameters: Record<string, any>;
+  parameters: Record<string, string | number | boolean>;
   status: ModuleStatus;
   progress?: number;
   executionTime?: number;
@@ -63,7 +63,7 @@ export interface Pipeline {
 export interface ExecutionResult {
   success: boolean;
   duration: number;
-  results: Record<string, any>;
+  results: Record<string, string | number | boolean | object>;
   error?: string;
 }
 

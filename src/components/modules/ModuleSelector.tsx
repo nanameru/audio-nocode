@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { X, Search } from 'lucide-react';
 import { getAllModuleTypes, getModulesByType, getModuleTypeLabel, getModuleTypeIcon } from '@/data/modules';
-import { ModuleDefinition } from '@/types/pipeline';
-import { cn } from '@/lib/utils';
+import { ModuleDefinition, ModuleType } from '@/types/pipeline';
 
 interface ModuleSelectorProps {
   isOpen: boolean;
@@ -79,7 +78,7 @@ export function ModuleSelector({ isOpen, onClose, onSelect, position }: ModuleSe
         {/* Module List */}
         <div className="flex-1 overflow-y-auto p-3">
           {allModuleTypes.map((moduleType) => {
-            const modules = getModulesByType(moduleType as any);
+            const modules = getModulesByType(moduleType as ModuleType);
             const filteredModules = filterModules(modules);
             
             if (filteredModules.length === 0) return null;

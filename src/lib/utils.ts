@@ -44,7 +44,7 @@ export function generateId(prefix: string = ''): string {
 }
 
 // Debounce function
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: never[]) => void>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -57,7 +57,7 @@ export function debounce<T extends (...args: any[]) => any>(
 }
 
 // Throttle function
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: never[]) => void>(
   func: T,
   limit: number
 ): (...args: Parameters<T>) => void {
@@ -86,7 +86,7 @@ export function isValidUrl(string: string): boolean {
   try {
     new URL(string);
     return true;
-  } catch (_) {
+  } catch {
     return false;
   }
 }
@@ -104,16 +104,16 @@ export function arrayMove<T>(array: T[], from: number, to: number): T[] {
   return newArray;
 }
 
-export function groupBy<T, K extends keyof any>(
+export function groupBy<T>(
   array: T[],
-  key: (item: T) => K
-): Record<K, T[]> {
+  key: (item: T) => string
+): Record<string, T[]> {
   return array.reduce((groups, item) => {
     const group = key(item);
     groups[group] = groups[group] || [];
     groups[group].push(item);
     return groups;
-  }, {} as Record<K, T[]>);
+  }, {} as Record<string, T[]>);
 }
 
 // Local storage utilities

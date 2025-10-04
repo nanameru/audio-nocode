@@ -241,7 +241,7 @@ export class AudioProcessingAPI {
   /**
    * Download result JSON from GCS
    */
-  async downloadResult(gsUri: string): Promise<any> {
+  async downloadResult(gsUri: string): Promise<Record<string, unknown>> {
     // GCSから直接ダウンロード（公開バケットの場合）
     const publicUrl = gsUri.replace('gs://', 'https://storage.googleapis.com/');
     const response = await fetch(publicUrl);

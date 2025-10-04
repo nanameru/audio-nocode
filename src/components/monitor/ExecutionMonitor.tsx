@@ -11,13 +11,13 @@ interface ExecutionMonitorProps {
 
 function ModuleStatusItem({ moduleId }: { moduleId: string }) {
   const { modules } = usePipelineStore();
-  const module = modules.find(m => m.id === moduleId);
-  const definition = module ? getModuleDefinition(module.definitionId) : null;
+  const moduleInstance = modules.find(m => m.id === moduleId);
+  const definition = moduleInstance ? getModuleDefinition(moduleInstance.definitionId) : null;
 
-  if (!module || !definition) return null;
+  if (!moduleInstance || !definition) return null;
 
   const getStatusIcon = () => {
-    switch (module.status) {
+    switch (moduleInstance.status) {
       case 'running':
         return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
       case 'completed':
@@ -30,13 +30,13 @@ function ModuleStatusItem({ moduleId }: { moduleId: string }) {
   };
 
   const getStatusText = () => {
-    switch (module.status) {
+    switch (moduleInstance.status) {
       case 'running':
-        return `Processing... ${formatPercentage(module.progress || 0)}`;
+        return `Processing... ${formatPercentage(moduleInstance.progress || 0)}`;
       case 'completed':
-        return `Complete (${module.executionTime || 0}ms)`;
+        return `Complete (${moduleInstance.executionTime || 0}ms)`;
       case 'error':
-        return `Error: ${module.error || 'Unknown error'}`;
+        return `Error: ${moduleInstance.error || 'Unknown error'}`;
       default:
         return 'Waiting';
     }
@@ -47,7 +47,7 @@ function ModuleStatusItem({ moduleId }: { moduleId: string }) {
       <div className="flex items-center gap-2 flex-1 min-w-0">
         {getStatusIcon()}
         <span className="text-sm font-medium text-white truncate">
-          [{module.name}]
+          [{moduleInstance.name}]
         </span>
       </div>
       
@@ -55,12 +55,12 @@ function ModuleStatusItem({ moduleId }: { moduleId: string }) {
         {getStatusText()}
       </div>
 
-      {module.status === 'running' && module.progress !== undefined && (
+      {moduleInstance.status === 'running' && moduleInstance.progress !== undefined && (
         <div className="w-20">
           <div className="w-full bg-gray-700 rounded-full h-2">
             <div
               className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${module.progress}%` }}
+              style={{ width: `${moduleInstance.progress}%` }}
             />
           </div>
         </div>
@@ -189,8 +189,8 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
             <p>No modules to monitor</p>
           </div>
         ) : (
-          modules.map((module) => (
-            <ModuleStatusItem key={module.id} moduleId={module.id} />
+          modules.map((moduleInstance) => (
+            <ModuleStatusItem key={moduleInstance.id} moduleId={moduleInstance.id} />
           ))
         )}
       </div>
