@@ -159,25 +159,43 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
     setSelectorPosition(undefined);
   }, [targetEdgeId, selectorPosition, connections, addModule, screenToFlowPosition]);
 
-  // キーボードショートカット（Delete/Backspace）でノード削除
+  // キーボードショートカット（Delete/Backspace）でノード削除、Ctrl/Cmd + ↑↓で順序変更
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedModuleId) {
-        // 入力フィールドにフォーカスがある場合は削除しない
-        const activeElement = document.activeElement;
-        if (activeElement && (
-          activeElement.tagName === 'INPUT' || 
-          activeElement.tagName === 'TEXTAREA' ||
-          activeElement.tagName === 'SELECT'
-        )) {
-          return;
-        }
+      // 入力フィールドにフォーカスがある場合は処理しない
+      const activeElement = document.activeElement;
+      if (activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.tagName === 'SELECT'
+      )) {
+        return;
+      }
 
+      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedModuleId) {
         event.preventDefault();
         const selectedModule = modules.find(m => m.id === selectedModuleId);
         if (selectedModule && window.confirm(`"${selectedModule.name}" モジュールを削除しますか？`)) {
           removeModule(selectedModuleId);
           selectModule(null);
+        }
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key === 'ArrowUp' && selectedModuleId) {
+        event.preventDefault();
+        const currentIndex = modules.findIndex(m => m.id === selectedModuleId);
+        if (currentIndex > 0) {
+          const { moveModuleUp } = usePipelineStore.getState();
+          moveModuleUp(selectedModuleId);
+        }
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key === 'ArrowDown' && selectedModuleId) {
+        event.preventDefault();
+        const currentIndex = modules.findIndex(m => m.id === selectedModuleId);
+        if (currentIndex < modules.length - 1) {
+          const { moveModuleDown } = usePipelineStore.getState();
+          moveModuleDown(selectedModuleId);
         }
       }
     };
