@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import { usePipelineStore } from '@/store/pipeline';
 import { getModuleDefinition } from '@/data/modules';
-import { Loader2, CheckCircle, XCircle, Clock, MemoryStick, Cpu, Zap } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Clock, MemoryStick, Cpu, Zap, FileText } from 'lucide-react';
 import { cn, formatDuration, formatPercentage, formatFileSize } from '@/lib/utils';
+import { ExecutionLogs } from './ExecutionLogs';
 
 interface ExecutionMonitorProps {
   className?: string;
@@ -154,7 +156,8 @@ function SystemMetricsDisplay() {
 }
 
 export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
-  const { modules, isExecuting, executionProgress } = usePipelineStore();
+  const { modules, isExecuting, executionProgress, executionLogs } = usePipelineStore();
+  const [showLogs, setShowLogs] = useState(true);
 
   const totalProgress = modules.length > 0 
     ? Object.values(executionProgress).reduce((sum, progress) => sum + progress, 0) / modules.length
@@ -252,6 +255,29 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
         <h4 className="text-sm font-medium text-gray-300 mb-3">System Resources</h4>
         <SystemMetricsDisplay />
       </div>
+
+      {/* Execution Logs Toggle */}
+      <div className="p-4 border-t border-gray-700">
+        <button
+          onClick={() => setShowLogs(!showLogs)}
+          className="flex items-center gap-2 text-sm text-gray-300 hover:text-white transition-colors"
+        >
+          <FileText className="h-4 w-4" />
+          <span>実行ログ</span>
+          {executionLogs.length > 0 && (
+            <span className="ml-auto bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full">
+              {executionLogs.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Execution Logs */}
+      {showLogs && (
+        <div className="p-4 border-t border-gray-700 bg-gray-800">
+          <ExecutionLogs />
+        </div>
+      )}
     </div>
   );
 }

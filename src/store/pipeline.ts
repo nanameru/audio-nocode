@@ -4,6 +4,14 @@ import { ModuleInstance, Connection, Pipeline, SystemMetrics, DiarizationResult 
 import { getModuleDefinition } from '@/data/modules';
 import { audioProcessingAPI, DiarizationOptions, Pyannote31Options } from '@/services/api';
 
+export interface ExecutionLog {
+  timestamp: Date;
+  level: 'info' | 'warning' | 'error' | 'success';
+  message: string;
+  module?: string;
+  details?: string;
+}
+
 interface PipelineState {
   // Pipeline data
   currentPipeline: Pipeline | null;
@@ -15,6 +23,7 @@ interface PipelineState {
   isExecuting: boolean;
   executionProgress: Record<string, number>;
   systemMetrics: SystemMetrics | null;
+  executionLogs: ExecutionLog[];
   
   // Results
   diarizationResults: Record<string, DiarizationResult>; // moduleId -> result
@@ -41,6 +50,8 @@ interface PipelineState {
   stopExecution: () => void;
   updateExecutionProgress: (moduleId: string, progress: number) => void;
   updateSystemMetrics: (metrics: SystemMetrics) => void;
+  addExecutionLog: (log: Omit<ExecutionLog, 'timestamp'>) => void;
+  clearExecutionLogs: () => void;
   
   // Result actions
   setDiarizationResult: (moduleId: string, result: Omit<DiarizationResult, 'moduleId' | 'timestamp'>) => void;
@@ -65,6 +76,7 @@ export const usePipelineStore = create<PipelineState>()(
       executionProgress: {},
       systemMetrics: null,
       diarizationResults: {},
+      executionLogs: [],
 
       // Pipeline actions
       createPipeline: (name: string, description?: string) => {
@@ -193,15 +205,26 @@ export const usePipelineStore = create<PipelineState>()(
         set({
           isExecuting: true,
           executionProgress: initialProgress,
-          modules: modules.map(m => ({ ...m, status: 'idle' as const }))
+          modules: modules.map(m => ({ ...m, status: 'idle' as const })),
+          executionLogs: []
+        });
+        
+        get().addExecutionLog({
+          level: 'info',
+          message: 'パイプライン実行を開始しました',
         });
       },
 
       executePipeline: async (inputFile?: File) => {
-        const { modules, startExecution, stopExecution, updateExecutionProgress } = get();
+        const { modules, startExecution, stopExecution, updateExecutionProgress, addExecutionLog } = get();
         
         try {
           startExecution();
+          
+          addExecutionLog({
+            level: 'info',
+            message: 'パイプライン検証中...',
+          });
           
           // Find input module and pyannote modules
           const inputModule = modules.find(m => m.definitionId === 'file-input');
@@ -212,12 +235,27 @@ export const usePipelineStore = create<PipelineState>()(
           );
           
           if (!inputModule || pyannoteModules.length === 0) {
+            addExecutionLog({
+              level: 'error',
+              message: 'パイプライン検証エラー',
+              details: 'ファイル入力とpyannote.ai APIノードが必要です'
+            });
             throw new Error('パイプラインにはファイル入力とpyannote.ai APIノードが必要です');
           }
           
           if (!inputFile) {
+            addExecutionLog({
+              level: 'error',
+              message: '音声ファイルが選択されていません',
+            });
             throw new Error('処理する音声ファイルを選択してください');
           }
+          
+          addExecutionLog({
+            level: 'success',
+            message: 'パイプライン検証完了',
+            details: `ファイル: ${inputFile.name} (${(inputFile.size / 1024 / 1024).toFixed(2)} MB)`
+          });
           
           // Check if we have pyannote 3.1 modules
           const hasPyannote31 = pyannoteModules.some(m => m.definitionId === 'diar-pyannote31');
@@ -252,19 +290,52 @@ export const usePipelineStore = create<PipelineState>()(
             });
             
             // Update progress: uploading
-            updateExecutionProgress(inputModule.id, 25);
-            pyannoteModules.forEach(m => updateExecutionProgress(m.id, 10));
+            addExecutionLog({
+              level: 'info',
+              message: 'GCSへ音声ファイルをアップロード中...',
+              module: inputModule.name
+            });
+            updateExecutionProgress(inputModule.id, 15);
+            pyannoteModules.forEach(m => updateExecutionProgress(m.id, 5));
             
-            // Execute pyannote 3.1 LOCAL processing (即座に処理開始！)
-            console.log('Starting pyannote 3.1 LOCAL processing with options:', options);
+            // Get signed URL and upload
+            const { signed_url, gs_uri } = await audioProcessingAPI.getSignedUrl(inputFile.name, inputFile.type);
+            addExecutionLog({
+              level: 'info',
+              message: 'アップロード URL取得完了',
+              details: gs_uri
+            });
+            updateExecutionProgress(inputModule.id, 30);
             
-            // Update progress: processing
+            await audioProcessingAPI.uploadToGCS(inputFile, signed_url);
+            addExecutionLog({
+              level: 'success',
+              message: 'アップロード完了',
+              module: inputModule.name
+            });
             updateExecutionProgress(inputModule.id, 50);
-            pyannoteModules.forEach(m => updateExecutionProgress(m.id, 50));
+            pyannoteModules.forEach(m => updateExecutionProgress(m.id, 20));
             
-            // ローカル処理（Job待ちゼロ！）
-            console.log('Calling processLocal with options:', options);
+            // Execute pyannote 3.1 LOCAL processing
+            addExecutionLog({
+              level: 'info',
+              message: 'pyannote 3.1 話者分離処理を開始',
+              details: `GPU: ${options.useGpu ? '有効' : '無効'}`,
+              module: pyannoteModules[0]?.name
+            });
+            updateExecutionProgress(inputModule.id, 60);
+            pyannoteModules.forEach(m => updateExecutionProgress(m.id, 40));
+            
+            // Call process local
             result = await audioProcessingAPI.processLocal(inputFile, options);
+            
+            addExecutionLog({
+              level: 'info',
+              message: '音声分析中...',
+              module: pyannoteModules[0]?.name
+            });
+            updateExecutionProgress(inputModule.id, 75);
+            pyannoteModules.forEach(m => updateExecutionProgress(m.id, 60));
             
             // Update final progress
             updateExecutionProgress(inputModule.id, 100);
@@ -385,6 +456,22 @@ export const usePipelineStore = create<PipelineState>()(
 
       updateSystemMetrics: (metrics: SystemMetrics) => {
         set({ systemMetrics: metrics });
+      },
+      
+      addExecutionLog: (log: Omit<ExecutionLog, 'timestamp'>) => {
+        set(state => ({
+          executionLogs: [
+            ...state.executionLogs,
+            {
+              ...log,
+              timestamp: new Date()
+            }
+          ]
+        }));
+      },
+      
+      clearExecutionLogs: () => {
+        set({ executionLogs: [] });
       },
 
       // Result actions
