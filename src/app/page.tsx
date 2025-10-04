@@ -35,13 +35,13 @@ export default function Home() {
           <PipelineCanvas className="flex-1" />
         </div>
 
-        {/* Properties Panel - Responsive width, hidden when no selection on mobile */}
+        {/* Properties Panel - Responsive width, hidden when no selection */}
         <PropertiesPanel 
           className={`
             w-full sm:w-96 lg:w-80 
             flex-shrink-0 
             h-full
-            ${selectedModuleId ? 'fixed inset-0 z-50 lg:relative lg:z-auto' : 'hidden lg:block'}
+            ${selectedModuleId ? 'fixed inset-0 z-50 lg:relative lg:z-auto' : 'hidden'}
           `} 
         />
       </div>
