@@ -352,8 +352,8 @@ export class AudioProcessingAPI {
     }
     
     // 2) Upload file and start processing
-    console.log('processLocal: Uploading file to /diarization/upload-pyannote31');
-    const uploadResponse = await fetch(`${this.baseUrl}/diarization/upload-pyannote31?${params}`, {
+    console.log('processLocal: Uploading file to /api/diarization/upload-pyannote31');
+    const uploadResponse = await fetch(`${this.baseUrl}/api/diarization/upload-pyannote31?${params}`, {
       method: 'POST',
       body: formData,
     });
@@ -372,7 +372,7 @@ export class AudioProcessingAPI {
     await this.waitForJobCompletion(jobId);
     
     // 4) Get job result
-    const jobStatusResponse = await fetch(`${this.baseUrl}/diarization/jobs/${jobId}`);
+    const jobStatusResponse = await fetch(`${this.baseUrl}/api/diarization/jobs/${jobId}`);
     
     if (!jobStatusResponse.ok) {
       throw new Error(`Failed to get job status: ${jobStatusResponse.status}`);
