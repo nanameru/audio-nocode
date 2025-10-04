@@ -105,9 +105,9 @@ export function ModuleLibrary({ className }: ModuleLibraryProps) {
   };
 
   return (
-    <div className={cn('bg-white border-r border-gray-200 flex flex-col', className)}>
+    <div className={cn('h-full bg-white border-r border-gray-200 flex flex-col', className)}>
       {/* Header */}
-      <div className="p-4 border-b border-gray-100">
+      <div className="p-4 border-b border-gray-100 flex-shrink-0">
         <h2 className="text-sm font-semibold text-gray-900 mb-3">モジュールライブラリ</h2>
         
         {/* Search */}
@@ -124,7 +124,7 @@ export function ModuleLibrary({ className }: ModuleLibraryProps) {
       </div>
 
       {/* Module Categories */}
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3">
         {allModuleTypes.map((moduleType) => {
           const modules = getModulesByType(moduleType as ModuleType);
           const filteredModules = filterModules(modules);
@@ -145,7 +145,7 @@ export function ModuleLibrary({ className }: ModuleLibraryProps) {
       </div>
 
       {/* Footer */}
-      <div className="p-3 border-t border-gray-100 text-center">
+      <div className="p-3 border-t border-gray-100 text-center flex-shrink-0">
         <p className="text-xs text-gray-500">
           ドラッグしてパイプラインに追加
         </p>
