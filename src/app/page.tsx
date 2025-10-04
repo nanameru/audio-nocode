@@ -38,6 +38,7 @@ export default function Home() {
           className={`
             w-full sm:w-96 lg:w-80 
             flex-shrink-0 
+            overflow-hidden
             ${selectedModuleId ? 'block' : 'hidden lg:block'}
           `} 
         />
