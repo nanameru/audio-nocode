@@ -26,7 +26,7 @@ export default function Home() {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Module Library - Hidden on mobile */}
-        <ModuleLibrary className="w-80 flex-shrink-0 hidden lg:block" />
+        <ModuleLibrary className="w-80 h-full flex-shrink-0 hidden lg:block" />
 
         {/* Pipeline Canvas */}
         <div className="flex-1 flex flex-col min-w-0">
