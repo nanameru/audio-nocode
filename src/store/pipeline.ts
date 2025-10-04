@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { ModuleInstance, Connection, Pipeline, SystemMetrics } from '@/types/pipeline';
+import { ModuleInstance, Connection, Pipeline, SystemMetrics, DiarizationResult } from '@/types/pipeline';
 import { getModuleDefinition } from '@/data/modules';
 import { audioProcessingAPI, DiarizationOptions, Pyannote31Options } from '@/services/api';
 
@@ -15,6 +15,9 @@ interface PipelineState {
   isExecuting: boolean;
   executionProgress: Record<string, number>;
   systemMetrics: SystemMetrics | null;
+  
+  // Results
+  diarizationResults: Record<string, DiarizationResult>; // moduleId -> result
   
   // Actions
   createPipeline: (name: string, description?: string) => void;
@@ -39,6 +42,10 @@ interface PipelineState {
   updateExecutionProgress: (moduleId: string, progress: number) => void;
   updateSystemMetrics: (metrics: SystemMetrics) => void;
   
+  // Result actions
+  setDiarizationResult: (moduleId: string, result: Omit<DiarizationResult, 'moduleId' | 'timestamp'>) => void;
+  clearResults: () => void;
+  
   // Utility actions
   clearPipeline: () => void;
   validatePipeline: () => { isValid: boolean; errors: string[] };
@@ -57,6 +64,7 @@ export const usePipelineStore = create<PipelineState>()(
       isExecuting: false,
       executionProgress: {},
       systemMetrics: null,
+      diarizationResults: {},
 
       // Pipeline actions
       createPipeline: (name: string, description?: string) => {
@@ -262,6 +270,22 @@ export const usePipelineStore = create<PipelineState>()(
             
             console.log('Diarization completed:', result);
             
+            // 結果を保存（pyannoteモジュールとJSON出力ノードに）
+            const saveResult = (moduleId: string) => {
+              get().setDiarizationResult(moduleId, {
+                status: result.status,
+                output_gs_uri: result.output_gs_uri,
+                speaker_count: result.speaker_count,
+                segment_count: result.segment_count
+              });
+            };
+            
+            pyannoteModules.forEach(module => saveResult(module.id));
+            
+            // JSON出力ノードにも結果を保存
+            const outputModules = modules.filter(m => m.type === 'output');
+            outputModules.forEach(module => saveResult(module.id));
+            
           } else {
             // Use standard pyannote API (Vertex AI Custom Jobs)
             const options: DiarizationOptions = {};
@@ -357,6 +381,24 @@ export const usePipelineStore = create<PipelineState>()(
 
       updateSystemMetrics: (metrics: SystemMetrics) => {
         set({ systemMetrics: metrics });
+      },
+
+      // Result actions
+      setDiarizationResult: (moduleId: string, result: Omit<DiarizationResult, 'moduleId' | 'timestamp'>) => {
+        set(state => ({
+          diarizationResults: {
+            ...state.diarizationResults,
+            [moduleId]: {
+              ...result,
+              moduleId,
+              timestamp: new Date()
+            }
+          }
+        }));
+      },
+
+      clearResults: () => {
+        set({ diarizationResults: {} });
       },
 
       // Utility actions

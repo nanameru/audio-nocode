@@ -4,10 +4,13 @@ import { useState, useEffect } from 'react';
 import { usePipelineStore } from '@/store/pipeline';
 import { getModuleDefinition } from '@/data/modules';
 import { ModuleParameter } from '@/types/pipeline';
-import { TestTube, RotateCcw, HelpCircle, Trash2, ChevronDown, ChevronUp, Activity } from 'lucide-react';
+import { TestTube, RotateCcw, HelpCircle, Trash2, ChevronDown, ChevronUp, Activity, Settings, BarChart3 } from 'lucide-react';
 import { ExecutionMonitor } from '@/components/monitor/ExecutionMonitor';
 import { InfoIcon } from '@/components/ui/InfoIcon';
+import { DiarizationResults } from '@/components/results/DiarizationResults';
 import { cn } from '@/lib/utils';
+
+type TabType = 'properties' | 'results';
 
 interface PropertiesPanelProps {
   className?: string;
@@ -140,6 +143,7 @@ function ParameterField({ parameter, value, onChange }: ParameterFieldProps) {
 
 export function PropertiesPanel({ className }: PropertiesPanelProps) {
   const [isMonitorExpanded, setIsMonitorExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('properties');
   
   const { 
     selectedModuleId, 
@@ -147,11 +151,20 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
     updateModuleParameters,
     removeModule,
     selectModule,
-    isExecuting
+    isExecuting,
+    diarizationResults
   } = usePipelineStore();
 
   const selectedModule = modules.find(m => m.id === selectedModuleId);
   const definition = selectedModule ? getModuleDefinition(selectedModule.definitionId) : null;
+  
+  // 選択されたモジュールの結果を取得
+  const moduleResult = selectedModule ? diarizationResults[selectedModule.id] : null;
+  
+  // 結果タブを表示するかどうか（diarizationまたはoutputモジュールで結果がある場合）
+  const showResultsTab = selectedModule && 
+    (selectedModule.type === 'diarization' || selectedModule.type === 'output') && 
+    moduleResult !== null;
 
   // 実行中は自動的にモニターを展開
   useEffect(() => {
@@ -159,6 +172,11 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
       setIsMonitorExpanded(true);
     }
   }, [isExecuting, isMonitorExpanded]);
+  
+  // モジュール変更時にプロパティタブに戻る
+  useEffect(() => {
+    setActiveTab('properties');
+  }, [selectedModuleId]);
 
   const handleParameterChange = (parameterKey: string, value: any) => {
     if (!selectedModule) return;
@@ -251,8 +269,43 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
               </div>
             </div>
 
-            {/* Parameters */}
-            <div className="p-4">
+            {/* Tabs */}
+            {showResultsTab && (
+              <div className="border-b border-gray-100">
+                <div className="flex px-4">
+                  <button
+                    onClick={() => setActiveTab('properties')}
+                    className={cn(
+                      'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors',
+                      activeTab === 'properties'
+                        ? 'border-purple-500 text-purple-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    )}
+                  >
+                    <Settings className="h-4 w-4" />
+                    プロパティ
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('results')}
+                    className={cn(
+                      'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors',
+                      activeTab === 'results'
+                        ? 'border-purple-500 text-purple-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    )}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    結果
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Tab Content */}
+            {activeTab === 'properties' ? (
+              <>
+                {/* Parameters */}
+                <div className="p-4">
               <div className="space-y-4">
                 {Object.entries(definition.parameters).map(([key, parameter]) => (
                   <ParameterField
@@ -301,6 +354,13 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
                 </button>
               </div>
             </div>
+              </>
+            ) : (
+              /* Results Tab */
+              <div className="p-4">
+                {moduleResult && <DiarizationResults result={moduleResult} />}
+              </div>
+            )}
           </>
         )}
       </div>

@@ -67,6 +67,16 @@ export interface ExecutionResult {
   error?: string;
 }
 
+// 話者認識結果
+export interface DiarizationResult {
+  status: string;
+  output_gs_uri: string;
+  speaker_count: number;
+  segment_count: number;
+  moduleId: string; // どのモジュールの結果か
+  timestamp: Date;
+}
+
 // システムメトリクス
 export interface SystemMetrics {
   memory: {
