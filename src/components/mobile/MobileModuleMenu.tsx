@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { getAllModuleTypes, getModulesByType, getModuleTypeLabel, getModuleTypeIcon } from '@/data/modules';
+import { getAllModuleTypes, getModulesByType, getModuleTypeLabel, getModuleTypeIcon, getModuleDefinition } from '@/data/modules';
 import { ModuleDefinition, ModuleType } from '@/types/pipeline';
 import { usePipelineStore } from '@/store/pipeline';
 
@@ -12,13 +12,41 @@ interface MobileModuleMenuProps {
 }
 
 export function MobileModuleMenu({ isOpen, onClose }: MobileModuleMenuProps) {
-  const { addModule } = usePipelineStore();
+  const { modules, addModule, addConnection } = usePipelineStore();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const allModuleTypes = getAllModuleTypes();
 
   const handleModuleSelect = (definitionId: string) => {
-    // Add module at a default position (center of canvas)
-    addModule(definitionId, { x: 250, y: 200 });
+    const position = { x: 250 + modules.length * 50, y: 200 };
+    
+    // Add module at calculated position
+    addModule(definitionId, position);
+    
+    if (modules.length > 0) {
+      const lastModule = modules[modules.length - 1];
+      const lastModuleDefinition = getModuleDefinition(lastModule.definitionId);
+      const newModuleDefinition = getModuleDefinition(definitionId);
+      
+      if (lastModuleDefinition && newModuleDefinition) {
+        const sourcePort = lastModuleDefinition.outputPorts[0] || 'output';
+        const targetPort = newModuleDefinition.inputPorts[0] || 'input';
+        
+        setTimeout(() => {
+          const state = usePipelineStore.getState();
+          const newModule = state.modules[state.modules.length - 1];
+          
+          if (newModule && newModule.definitionId === definitionId) {
+            addConnection({
+              source: lastModule.id,
+              target: newModule.id,
+              sourcePort,
+              targetPort,
+            });
+          }
+        }, 0);
+      }
+    }
+    
     onClose();
   };
 
