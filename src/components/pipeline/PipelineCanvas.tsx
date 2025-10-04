@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -14,16 +14,23 @@ import ReactFlow, {
   MiniMap,
   Connection,
   NodeTypes,
+  EdgeTypes,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
 import { usePipelineStore } from '@/store/pipeline';
 import { getModuleDefinition } from '@/data/modules';
 import { ModuleNode } from './ModuleNode';
+import { AddNodeEdge } from './AddNodeEdge';
+import { ModuleSelector } from '@/components/modules/ModuleSelector';
 import { cn } from '@/lib/utils';
 
 const nodeTypes: NodeTypes = {
   module: ModuleNode,
+};
+
+const edgeTypes: EdgeTypes = {
+  addNode: AddNodeEdge as any,
 };
 
 interface PipelineCanvasProps {
@@ -33,6 +40,9 @@ interface PipelineCanvasProps {
 function PipelineCanvasInner({ className }: PipelineCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [selectorPosition, setSelectorPosition] = useState<{ x: number; y: number } | undefined>();
+  const [targetEdgeId, setTargetEdgeId] = useState<string | null>(null);
   
   const {
     modules,
@@ -54,14 +64,25 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
     data: module,
   }));
 
+  // エッジに+ボタンのハンドラーを追加
+  const handleAddNodeOnEdge = useCallback((edgeId: string, position: { x: number; y: number }) => {
+    setTargetEdgeId(edgeId);
+    setSelectorPosition(position);
+    setIsSelectorOpen(true);
+  }, []);
+
   const edges: Edge[] = connections.map((connection) => ({
     id: connection.id,
+    type: 'addNode',
     source: connection.source,
     target: connection.target,
     sourceHandle: connection.sourcePort,
     targetHandle: connection.targetPort,
     animated: false,
     style: { stroke: '#8b5cf6', strokeWidth: 2 },
+    data: {
+      onAddNode: handleAddNodeOnEdge,
+    },
   }));
 
   const [reactFlowNodes, setReactFlowNodes, onNodesChange] = useNodesState(nodes);
@@ -162,6 +183,28 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
     [removeConnection]
   );
 
+  // モジュールセレクターでモジュールを選択した時の処理
+  const handleModuleSelect = useCallback((definitionId: string) => {
+    if (!targetEdgeId || !selectorPosition) return;
+
+    // エッジの接続情報を取得
+    const connection = connections.find(c => c.id === targetEdgeId);
+    if (!connection) return;
+
+    // フロー座標に変換
+    const flowPosition = screenToFlowPosition(selectorPosition);
+
+    // 新しいモジュールを追加
+    addModule(definitionId, flowPosition);
+
+    // TODO: 既存のエッジを削除し、新しいモジュールを経由する2つのエッジを作成
+    // これは次のフレームで実行する（モジュールIDが必要）
+    
+    setIsSelectorOpen(false);
+    setTargetEdgeId(null);
+    setSelectorPosition(undefined);
+  }, [targetEdgeId, selectorPosition, connections, addModule, screenToFlowPosition]);
+
   // キーボードショートカット（Delete/Backspace）でノード削除
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -232,6 +275,7 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
         onPaneClick={onPaneClick}
         onEdgeClick={onEdgeClick}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         attributionPosition="bottom-left"
         deleteKeyCode={['Delete', 'Backspace']}
@@ -268,6 +312,18 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
           </div>
         </div>
       )}
+
+      {/* Module Selector Dialog */}
+      <ModuleSelector
+        isOpen={isSelectorOpen}
+        onClose={() => {
+          setIsSelectorOpen(false);
+          setTargetEdgeId(null);
+          setSelectorPosition(undefined);
+        }}
+        onSelect={handleModuleSelect}
+        position={selectorPosition}
+      />
     </div>
   );
 }

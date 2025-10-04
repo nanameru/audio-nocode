@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePipelineStore } from '@/store/pipeline';
 import { getModuleDefinition } from '@/data/modules';
 import { ModuleParameter } from '@/types/pipeline';
-import { TestTube, RotateCcw, HelpCircle, Trash2, ChevronDown, ChevronUp, Activity, Settings, BarChart3 } from 'lucide-react';
+import { TestTube, RotateCcw, HelpCircle, Trash2, ChevronDown, ChevronUp, Activity, Settings, BarChart3, X } from 'lucide-react';
 import { ExecutionMonitor } from '@/components/monitor/ExecutionMonitor';
 import { InfoIcon } from '@/components/ui/InfoIcon';
 import { DiarizationResults } from '@/components/results/DiarizationResults';
@@ -219,8 +219,17 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
   return (
     <div className={cn('bg-white border-l border-gray-200 flex flex-col', className)}>
       {/* Properties Header */}
-      <div className="p-4 border-b border-gray-100">
+      <div className="p-4 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-900">プロパティ</h3>
+        {selectedModule && (
+          <button
+            onClick={() => selectModule(null)}
+            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            title="閉じる"
+          >
+            <X className="h-4 w-4 text-gray-500" />
+          </button>
+        )}
       </div>
 
       {/* Module Properties Section */}

@@ -9,7 +9,7 @@ import { ExecutionMonitor } from '@/components/monitor/ExecutionMonitor';
 import { usePipelineStore } from '@/store/pipeline';
 
 export default function Home() {
-  const { createPipeline } = usePipelineStore();
+  const { createPipeline, selectedModuleId } = usePipelineStore();
 
   useEffect(() => {
     // Create a default pipeline on first load
@@ -23,16 +23,22 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Module Library */}
-        <ModuleLibrary className="w-80 flex-shrink-0" />
+        {/* Module Library - Hidden on mobile */}
+        <ModuleLibrary className="w-80 flex-shrink-0 hidden lg:block" />
 
         {/* Pipeline Canvas */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           <PipelineCanvas className="flex-1" />
         </div>
 
-        {/* Properties Panel */}
-        <PropertiesPanel className="w-80 flex-shrink-0" />
+        {/* Properties Panel - Responsive width, hidden when no selection on mobile */}
+        <PropertiesPanel 
+          className={`
+            w-full sm:w-96 lg:w-80 
+            flex-shrink-0 
+            ${selectedModuleId ? 'block' : 'hidden lg:block'}
+          `} 
+        />
       </div>
     </div>
   );
