@@ -237,7 +237,7 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
       </div>
 
       {/* Module Properties Section */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {!selectedModule || !definition ? (
           <div className="flex items-center justify-center p-8">
             <div className="text-center">
@@ -253,7 +253,7 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
         ) : (
           <>
             {/* Selected Module Info */}
-            <div className="p-4 border-b border-gray-100">
+            <div className="flex-shrink-0 p-4 border-b border-gray-100">
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-lg">{definition.icon}</span>
                 <div className="flex-1">
@@ -302,7 +302,7 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
 
             {/* Tabs */}
             {showResultsTab && (
-              <div className="border-b border-gray-100">
+              <div className="flex-shrink-0 border-b border-gray-100">
                 <div className="flex px-4">
                   <button
                     onClick={() => setActiveTab('properties')}
@@ -332,66 +332,68 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
               </div>
             )}
 
-            {/* Tab Content */}
-            {activeTab === 'properties' ? (
-              <>
-                {/* Parameters */}
-                <div className="p-4">
-              <div className="space-y-4">
-                {Object.entries(definition.parameters).map(([key, parameter]) => (
-                  <ParameterField
-                    key={key}
-                    parameter={parameter}
-                    value={selectedModule.parameters[key]}
-                    onChange={(value) => handleParameterChange(key, value)}
-                  />
-                ))}
-              </div>
-            </div>
+            {/* Tab Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto">
+              {activeTab === 'properties' ? (
+                <>
+                  {/* Parameters */}
+                  <div className="p-4">
+                    <div className="space-y-4">
+                      {Object.entries(definition.parameters).map(([key, parameter]) => (
+                        <ParameterField
+                          key={key}
+                          parameter={parameter}
+                          value={selectedModule.parameters[key]}
+                          onChange={(value) => handleParameterChange(key, value)}
+                        />
+                      ))}
+                    </div>
+                  </div>
 
-            {/* Actions */}
-            <div className="p-4 border-t border-gray-100">
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={handleTest}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm border border-gray-200"
-                >
-                  <TestTube className="h-4 w-4" />
-                  テスト
-                </button>
-                
-                <button
-                  onClick={handleReset}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm border border-gray-200"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  リセット
-                </button>
-                
-                <button
-                  onClick={handleHelp}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm border border-gray-200"
-                >
-                  <HelpCircle className="h-4 w-4" />
-                  ヘルプ
-                </button>
-                
-                <button
-                  onClick={handleDelete}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 rounded-md hover:bg-red-100 transition-colors text-sm border border-red-200 ml-auto"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  削除
-                </button>
-              </div>
+                  {/* Actions */}
+                  <div className="p-4 border-t border-gray-100">
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={handleTest}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm border border-gray-200"
+                      >
+                        <TestTube className="h-4 w-4" />
+                        テスト
+                      </button>
+                      
+                      <button
+                        onClick={handleReset}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm border border-gray-200"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        リセット
+                      </button>
+                      
+                      <button
+                        onClick={handleHelp}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm border border-gray-200"
+                      >
+                        <HelpCircle className="h-4 w-4" />
+                        ヘルプ
+                      </button>
+                      
+                      <button
+                        onClick={handleDelete}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 rounded-md hover:bg-red-100 transition-colors text-sm border border-red-200 ml-auto"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        削除
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Results Tab */
+                <div className="p-4">
+                  {moduleResult && <DiarizationResults result={moduleResult} />}
+                </div>
+              )}
             </div>
-              </>
-            ) : (
-              /* Results Tab */
-              <div className="p-4">
-                {moduleResult && <DiarizationResults result={moduleResult} />}
-              </div>
-            )}
           </>
         )}
       </div>
