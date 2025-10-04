@@ -143,13 +143,6 @@ export function ModuleLibrary({ className }: ModuleLibraryProps) {
           );
         })}
       </div>
-
-      {/* Footer */}
-      <div className="p-3 border-t border-gray-100 text-center flex-shrink-0">
-        <p className="text-xs text-gray-500">
-          ドラッグしてパイプラインに追加
-        </p>
-      </div>
     </div>
   );
 }
