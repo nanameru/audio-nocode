@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePipelineStore } from '@/store/pipeline';
 import { getModuleDefinition } from '@/data/modules';
 import { ModuleParameter } from '@/types/pipeline';
-import { RotateCcw, Trash2, ChevronDown, ChevronUp, Activity, Settings, BarChart3, X, ArrowUp, ArrowDown } from 'lucide-react';
-import { ExecutionMonitor } from '@/components/monitor/ExecutionMonitor';
+import { RotateCcw, Trash2, ChevronDown, ChevronUp, Settings, BarChart3, X, ArrowUp, ArrowDown } from 'lucide-react';
 import { InfoIcon } from '@/components/ui/InfoIcon';
 import { DiarizationResults } from '@/components/results/DiarizationResults';
 import { cn } from '@/lib/utils';
@@ -142,7 +141,6 @@ function ParameterField({ parameter, value, onChange }: ParameterFieldProps) {
 }
 
 export function PropertiesPanel({ className }: PropertiesPanelProps) {
-  const [isMonitorExpanded, setIsMonitorExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('properties');
   
   const { 
@@ -151,7 +149,6 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
     updateModuleParameters,
     removeModule,
     selectModule,
-    isExecuting,
     diarizationResults,
     moveModuleUp,
     moveModuleDown
@@ -167,13 +164,6 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
   const showResultsTab = selectedModule && 
     (selectedModule.type === 'diarization' || selectedModule.type === 'output') && 
     moduleResult !== null;
-
-  // 実行中は自動的にモニターを展開
-  useEffect(() => {
-    if (isExecuting && !isMonitorExpanded) {
-      setIsMonitorExpanded(true);
-    }
-  }, [isExecuting, isMonitorExpanded]);
   
   // モジュール変更時にプロパティタブに戻る
   useEffect(() => {
@@ -372,39 +362,6 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
         )}
       </div>
 
-      {/* Execution Monitor Section */}
-      <div className="border-t border-gray-100">
-        <button
-          onClick={() => setIsMonitorExpanded(!isMonitorExpanded)}
-          className="w-full p-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <Activity className={cn(
-              "h-4 w-4",
-              isExecuting ? "text-blue-500 animate-pulse" : "text-gray-500"
-            )} />
-            <span className="text-sm font-medium text-gray-900">実行モニター</span>
-            {isExecuting && (
-              <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
-                実行中
-              </span>
-            )}
-          </div>
-          {isMonitorExpanded ? (
-            <ChevronUp className="h-4 w-4 text-gray-500" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-gray-500" />
-          )}
-        </button>
-        
-        {isMonitorExpanded && (
-          <div className="border-t border-gray-100 bg-gray-50">
-            <div className="p-3">
-              <ExecutionMonitor className="max-h-80 overflow-y-auto" />
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 
