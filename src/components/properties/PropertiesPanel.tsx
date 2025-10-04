@@ -221,7 +221,7 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
   };
 
   return (
-    <div className={cn('bg-white border-l border-gray-200 flex flex-col', className)}>
+    <div className={cn('bg-white border-l border-gray-200 flex flex-col h-full', className)}>
       {/* Properties Header */}
       <div className="p-4 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-900">プロパティ</h3>
