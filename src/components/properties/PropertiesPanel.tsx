@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePipelineStore } from '@/store/pipeline';
 import { getModuleDefinition } from '@/data/modules';
 import { ModuleParameter } from '@/types/pipeline';
-import { TestTube, RotateCcw, HelpCircle, Trash2, ChevronDown, ChevronUp, Activity, Settings, BarChart3, X, ArrowUp, ArrowDown } from 'lucide-react';
+import { RotateCcw, Trash2, ChevronDown, ChevronUp, Activity, Settings, BarChart3, X, ArrowUp, ArrowDown } from 'lucide-react';
 import { ExecutionMonitor } from '@/components/monitor/ExecutionMonitor';
 import { InfoIcon } from '@/components/ui/InfoIcon';
 import { DiarizationResults } from '@/components/results/DiarizationResults';
@@ -188,11 +188,6 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
     });
   };
 
-  const handleTest = () => {
-    // TODO: Implement module testing
-    console.log('Testing module:', selectedModule?.name);
-  };
-
   const handleReset = () => {
     if (!selectedModule || !definition) return;
     
@@ -203,11 +198,6 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
     );
     
     updateModuleParameters(selectedModule.id, defaultParameters);
-  };
-
-  const handleHelp = () => {
-    // TODO: Show help documentation
-    console.log('Show help for:', selectedModule?.name);
   };
 
   const handleDelete = () => {
@@ -281,22 +271,43 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
               </div>
               
               {/* Status */}
-              <div className="flex items-center gap-2 mt-3">
-                <div className={cn(
-                  'w-1.5 h-1.5 rounded-full',
-                  selectedModule.status === 'idle' && 'bg-gray-400',
-                  selectedModule.status === 'running' && 'bg-blue-500',
-                  selectedModule.status === 'completed' && 'bg-green-500',
-                  selectedModule.status === 'error' && 'bg-red-500'
-                )} />
-                <span className="text-xs text-gray-600 capitalize">
-                  {selectedModule.status}
-                </span>
-                {selectedModule.progress !== undefined && (
-                  <span className="text-xs text-gray-500">
-                    ({selectedModule.progress}%)
+              <div className="flex items-center justify-between gap-2 mt-3">
+                <div className="flex items-center gap-2">
+                  <div className={cn(
+                    'w-1.5 h-1.5 rounded-full',
+                    selectedModule.status === 'idle' && 'bg-gray-400',
+                    selectedModule.status === 'running' && 'bg-blue-500',
+                    selectedModule.status === 'completed' && 'bg-green-500',
+                    selectedModule.status === 'error' && 'bg-red-500'
+                  )} />
+                  <span className="text-xs text-gray-600 capitalize">
+                    {selectedModule.status}
                   </span>
-                )}
+                  {selectedModule.progress !== undefined && (
+                    <span className="text-xs text-gray-500">
+                      ({selectedModule.progress}%)
+                    </span>
+                  )}
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleReset}
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors text-xs border border-gray-200"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    リセット
+                  </button>
+                  
+                  <button
+                    onClick={handleDelete}
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-700 rounded hover:bg-red-100 transition-colors text-xs border border-red-200"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    削除
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -347,43 +358,6 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
                           onChange={(value) => handleParameterChange(key, value)}
                         />
                       ))}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="p-4 border-t border-gray-100">
-                    <div className="flex gap-2 flex-wrap">
-                      <button
-                        onClick={handleTest}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm border border-gray-200"
-                      >
-                        <TestTube className="h-4 w-4" />
-                        テスト
-                      </button>
-                      
-                      <button
-                        onClick={handleReset}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm border border-gray-200"
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                        リセット
-                      </button>
-                      
-                      <button
-                        onClick={handleHelp}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm border border-gray-200"
-                      >
-                        <HelpCircle className="h-4 w-4" />
-                        ヘルプ
-                      </button>
-                      
-                      <button
-                        onClick={handleDelete}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 rounded-md hover:bg-red-100 transition-colors text-sm border border-red-200 ml-auto"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        削除
-                      </button>
                     </div>
                   </div>
                 </>
