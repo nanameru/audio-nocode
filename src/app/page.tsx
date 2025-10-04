@@ -1,15 +1,17 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { Plus } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { ModuleLibrary } from '@/components/modules/ModuleLibrary';
 import { PipelineCanvas } from '@/components/pipeline/PipelineCanvas';
 import { PropertiesPanel } from '@/components/properties/PropertiesPanel';
-import { ExecutionMonitor } from '@/components/monitor/ExecutionMonitor';
+import { MobileModuleMenu } from '@/components/mobile/MobileModuleMenu';
 import { usePipelineStore } from '@/store/pipeline';
 
 export default function Home() {
   const { createPipeline, selectedModuleId } = usePipelineStore();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     // Create a default pipeline on first load
@@ -40,6 +42,20 @@ export default function Home() {
           `} 
         />
       </div>
+
+      {/* Mobile FAB (Floating Action Button) */}
+      <button
+        onClick={() => setIsMobileMenuOpen(true)}
+        className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg flex items-center justify-center z-40 transition-transform active:scale-95"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+
+      {/* Mobile Module Menu */}
+      <MobileModuleMenu
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+      />
     </div>
   );
 }

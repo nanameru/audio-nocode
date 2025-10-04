@@ -238,6 +238,9 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
         zoomOnScroll={true}
         zoomOnPinch={true}
         panOnScroll={false}
+        minZoom={0.3}
+        maxZoom={2}
+        defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
       >
         <Background color="#f1f5f9" gap={20} />
         <Controls className="bg-white border border-gray-200 rounded-lg shadow-lg" />

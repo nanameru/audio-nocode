@@ -83,7 +83,7 @@ const ModuleNodeComponent = ({ data }: ModuleNodeProps) => {
   return (
     <div
       className={cn(
-        'group relative bg-white rounded-md shadow-sm border transition-all min-w-32 p-3',
+        'group relative bg-white rounded-md shadow-sm border transition-all min-w-32 p-3 touch-none',
         isSelected ? 'border-gray-400 shadow-md' : 'border-gray-200',
         data.status === 'running' && 'animate-pulse',
         'hover:shadow-md cursor-pointer'

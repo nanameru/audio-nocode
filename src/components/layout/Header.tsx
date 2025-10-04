@@ -97,8 +97,8 @@ export function Header() {
             </div>
           </div>
 
-          {/* Navigation Tabs */}
-          <nav className="flex items-center gap-1">
+          {/* Navigation Tabs - Hidden on mobile */}
+          <nav className="hidden lg:flex items-center gap-1">
             {navTabs.map((tab) => (
               <button
                 key={tab.id}
@@ -133,12 +133,12 @@ export function Header() {
                 {isExecuting ? (
                   <>
                     <Square className="h-4 w-4" />
-                    停止
+                    <span className="hidden sm:inline">停止</span>
                   </>
                 ) : (
                   <>
                     <Play className="h-4 w-4" />
-                    実行
+                    <span className="hidden sm:inline">実行</span>
                   </>
                 )}
               </button>
@@ -146,7 +146,7 @@ export function Header() {
               <button
                 onClick={savePipeline}
                 disabled={!currentPipeline}
-                className="flex items-center gap-2 px-3 py-1.5 bg-gray-900 text-white rounded-md text-sm font-medium transition-colors hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-900 text-white rounded-md text-sm font-medium transition-colors hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 <Save className="h-4 w-4" />
                 保存
@@ -187,8 +187,8 @@ export function Header() {
               </DropdownMenu>
             </div>
 
-            {/* User Menu */}
-            <div className="flex items-center gap-1 ml-2 pl-2 border-l border-gray-200">
+            {/* User Menu - Hidden on mobile */}
+            <div className="hidden sm:flex items-center gap-1 ml-2 pl-2 border-l border-gray-200">
               <button className="p-2 rounded-md hover:bg-gray-100 transition-colors">
                 <Settings className="h-4 w-4 text-gray-600" />
               </button>
