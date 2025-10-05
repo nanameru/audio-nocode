@@ -105,6 +105,53 @@ async def create_signed_url(request: SignUrlRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class DownloadUrlRequest(BaseModel):
+    gs_uri: str
+
+
+@app.post("/download-url")
+async def create_download_url(request: DownloadUrlRequest):
+    """GCS署名ダウンロードURLを発行"""
+    try:
+        import json
+        from google.oauth2 import service_account
+        
+        # gs:// プレフィックスを削除してパスを取得
+        if not request.gs_uri.startswith(f"gs://{BUCKET}/"):
+            raise HTTPException(status_code=400, detail="Invalid GCS URI")
+        
+        blob_path = request.gs_uri.replace(f"gs://{BUCKET}/", "")
+        
+        # Secret Managerから秘密鍵を取得
+        client = secretmanager.SecretManagerServiceClient()
+        secret_name = f"projects/{PROJECT_ID}/secrets/run-api-service-account-key/versions/latest"
+        response = client.access_secret_version(request={"name": secret_name})
+        secret_data = response.payload.data.decode("UTF-8")
+        
+        # サービスアカウント認証情報を作成
+        service_account_info = json.loads(secret_data)
+        credentials = service_account.Credentials.from_service_account_info(service_account_info)
+        
+        # GCSクライアントを認証情報付きで作成
+        storage_client_with_key = storage.Client(credentials=credentials, project=PROJECT_ID)
+        bucket = storage_client_with_key.bucket(BUCKET)
+        blob = bucket.blob(blob_path)
+        
+        # GET用の署名URL（10分有効）
+        url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=10),
+            method="GET"
+        )
+        
+        return {
+            "signed_url": url,
+            "expires_in": 600
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/jobs")
 async def create_job(request: JobRequest):
     """Vertex AI Custom Job（GPU）を起動"""

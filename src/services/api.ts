@@ -239,12 +239,26 @@ export class AudioProcessingAPI {
   }
 
   /**
-   * Download result JSON from GCS
+   * Download result JSON from GCS using signed URL
    */
   async downloadResult(gsUri: string): Promise<Record<string, unknown>> {
-    // GCSから直接ダウンロード（公開バケットの場合）
-    const publicUrl = gsUri.replace('gs://', 'https://storage.googleapis.com/');
-    const response = await fetch(publicUrl);
+    // バックエンドから署名付きダウンロードURLを取得
+    const urlResponse = await fetch(`${this.baseUrl}/download-url`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ gs_uri: gsUri }),
+    });
+    
+    if (!urlResponse.ok) {
+      throw new Error(`Failed to get download URL: ${urlResponse.status}`);
+    }
+    
+    const { signed_url } = await urlResponse.json();
+    
+    // 署名付きURLを使ってファイルをダウンロード
+    const response = await fetch(signed_url);
     
     if (!response.ok) {
       throw new Error(`Failed to download result: ${response.status}`);
