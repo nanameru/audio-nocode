@@ -125,23 +125,25 @@ export function ModuleLibrary({ className }: ModuleLibraryProps) {
 
       {/* Module Categories */}
       <div className="flex-1 overflow-y-auto p-3">
-        {allModuleTypes.map((moduleType) => {
-          const modules = getModulesByType(moduleType as ModuleType);
-          const filteredModules = filterModules(modules);
-          
-          if (filteredModules.length === 0) return null;
-          
-          return (
-            <ModuleCategory
-              key={moduleType}
-              title={getModuleTypeLabel(moduleType)}
-              icon={getModuleTypeIcon(moduleType)}
-              modules={filteredModules}
-              expanded={expandedCategories.has(moduleType)}
-              onToggle={() => toggleCategory(moduleType)}
-            />
-          );
-        })}
+        <div className="h-full overflow-y-auto">
+          {allModuleTypes.map((moduleType) => {
+            const modules = getModulesByType(moduleType as ModuleType);
+            const filteredModules = filterModules(modules);
+            
+            if (filteredModules.length === 0) return null;
+            
+            return (
+              <ModuleCategory
+                key={moduleType}
+                title={getModuleTypeLabel(moduleType)}
+                icon={getModuleTypeIcon(moduleType)}
+                modules={filteredModules}
+                expanded={expandedCategories.has(moduleType)}
+                onToggle={() => toggleCategory(moduleType)}
+              />
+            );
+          })}
+        </div>
       </div>
 
       {/* Footer */}
