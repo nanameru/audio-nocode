@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePipelineStore } from '@/store/pipeline';
 import { getModuleDefinition } from '@/data/modules';
 import { ModuleParameter } from '@/types/pipeline';
-import { TestTube, RotateCcw, HelpCircle, Trash2, ChevronDown, ChevronUp, Activity, Settings, BarChart3, X } from 'lucide-react';
-import { ExecutionMonitor } from '@/components/monitor/ExecutionMonitor';
+import { RotateCcw, Trash2, ChevronDown, ChevronUp, Settings, BarChart3, X, ArrowUp, ArrowDown } from 'lucide-react';
 import { InfoIcon } from '@/components/ui/InfoIcon';
 import { DiarizationResults } from '@/components/results/DiarizationResults';
 import { cn } from '@/lib/utils';
@@ -142,7 +141,6 @@ function ParameterField({ parameter, value, onChange }: ParameterFieldProps) {
 }
 
 export function PropertiesPanel({ className }: PropertiesPanelProps) {
-  const [isMonitorExpanded, setIsMonitorExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('properties');
   
   const { 
@@ -151,8 +149,9 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
     updateModuleParameters,
     removeModule,
     selectModule,
-    isExecuting,
-    diarizationResults
+    diarizationResults,
+    moveModuleUp,
+    moveModuleDown
   } = usePipelineStore();
 
   const selectedModule = modules.find(m => m.id === selectedModuleId);
@@ -165,13 +164,6 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
   const showResultsTab = selectedModule && 
     (selectedModule.type === 'diarization' || selectedModule.type === 'output') && 
     moduleResult !== null;
-
-  // 実行中は自動的にモニターを展開
-  useEffect(() => {
-    if (isExecuting && !isMonitorExpanded) {
-      setIsMonitorExpanded(true);
-    }
-  }, [isExecuting, isMonitorExpanded]);
   
   // モジュール変更時にプロパティタブに戻る
   useEffect(() => {
@@ -186,11 +178,6 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
     });
   };
 
-  const handleTest = () => {
-    // TODO: Implement module testing
-    console.log('Testing module:', selectedModule?.name);
-  };
-
   const handleReset = () => {
     if (!selectedModule || !definition) return;
     
@@ -201,11 +188,6 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
     );
     
     updateModuleParameters(selectedModule.id, defaultParameters);
-  };
-
-  const handleHelp = () => {
-    // TODO: Show help documentation
-    console.log('Show help for:', selectedModule?.name);
   };
 
   const handleDelete = () => {
@@ -219,7 +201,7 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
   };
 
   return (
-    <div className={cn('bg-white border-l border-gray-200 flex flex-col', className)}>
+    <div className={cn('bg-white border-l border-gray-200 flex flex-col h-full', className)}>
       {/* Properties Header */}
       <div className="p-4 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-900">プロパティ</h3>
@@ -235,7 +217,7 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
       </div>
 
       {/* Module Properties Section */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {!selectedModule || !definition ? (
           <div className="flex items-center justify-center p-8">
             <div className="text-center">
@@ -251,38 +233,77 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
         ) : (
           <>
             {/* Selected Module Info */}
-            <div className="p-4 border-b border-gray-100">
+            <div className="flex-shrink-0 p-4 border-b border-gray-100">
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-lg">{definition.icon}</span>
-                <div>
+                <div className="flex-1">
                   <h3 className="text-sm font-medium text-gray-900">{selectedModule.name}</h3>
                   <p className="text-xs text-gray-500">{definition.description}</p>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <button
+                    onClick={() => moveModuleUp(selectedModule.id)}
+                    disabled={modules.findIndex(m => m.id === selectedModule.id) === 0}
+                    className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="上に移動"
+                  >
+                    <ArrowUp className="h-3.5 w-3.5 text-gray-600" />
+                  </button>
+                  <button
+                    onClick={() => moveModuleDown(selectedModule.id)}
+                    disabled={modules.findIndex(m => m.id === selectedModule.id) === modules.length - 1}
+                    className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="下に移動"
+                  >
+                    <ArrowDown className="h-3.5 w-3.5 text-gray-600" />
+                  </button>
                 </div>
               </div>
               
               {/* Status */}
-              <div className="flex items-center gap-2 mt-3">
-                <div className={cn(
-                  'w-1.5 h-1.5 rounded-full',
-                  selectedModule.status === 'idle' && 'bg-gray-400',
-                  selectedModule.status === 'running' && 'bg-blue-500',
-                  selectedModule.status === 'completed' && 'bg-green-500',
-                  selectedModule.status === 'error' && 'bg-red-500'
-                )} />
-                <span className="text-xs text-gray-600 capitalize">
-                  {selectedModule.status}
-                </span>
-                {selectedModule.progress !== undefined && (
-                  <span className="text-xs text-gray-500">
-                    ({selectedModule.progress}%)
+              <div className="flex items-center justify-between gap-2 mt-3">
+                <div className="flex items-center gap-2">
+                  <div className={cn(
+                    'w-1.5 h-1.5 rounded-full',
+                    selectedModule.status === 'idle' && 'bg-gray-400',
+                    selectedModule.status === 'running' && 'bg-blue-500',
+                    selectedModule.status === 'completed' && 'bg-green-500',
+                    selectedModule.status === 'error' && 'bg-red-500'
+                  )} />
+                  <span className="text-xs text-gray-600 capitalize">
+                    {selectedModule.status}
                   </span>
-                )}
+                  {selectedModule.progress !== undefined && (
+                    <span className="text-xs text-gray-500">
+                      ({selectedModule.progress}%)
+                    </span>
+                  )}
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleReset}
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors text-xs border border-gray-200"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    リセット
+                  </button>
+                  
+                  <button
+                    onClick={handleDelete}
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-700 rounded hover:bg-red-100 transition-colors text-xs border border-red-200"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    削除
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Tabs */}
             {showResultsTab && (
-              <div className="border-b border-gray-100">
+              <div className="flex-shrink-0 border-b border-gray-100">
                 <div className="flex px-4">
                   <button
                     onClick={() => setActiveTab('properties')}
@@ -312,103 +333,35 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
               </div>
             )}
 
-            {/* Tab Content */}
-            {activeTab === 'properties' ? (
-              <>
-                {/* Parameters */}
+            {/* Tab Content - Scrollable */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              {activeTab === 'properties' ? (
+                <>
+                  {/* Parameters */}
+                  <div className="p-4">
+                    <div className="space-y-4">
+                      {Object.entries(definition.parameters).map(([key, parameter]) => (
+                        <ParameterField
+                          key={key}
+                          parameter={parameter}
+                          value={selectedModule.parameters[key]}
+                          onChange={(value) => handleParameterChange(key, value)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Results Tab */
                 <div className="p-4">
-              <div className="space-y-4">
-                {Object.entries(definition.parameters).map(([key, parameter]) => (
-                  <ParameterField
-                    key={key}
-                    parameter={parameter}
-                    value={selectedModule.parameters[key]}
-                    onChange={(value) => handleParameterChange(key, value)}
-                  />
-                ))}
-              </div>
+                  {moduleResult && <DiarizationResults result={moduleResult} />}
+                </div>
+              )}
             </div>
-
-            {/* Actions */}
-            <div className="p-4 border-t border-gray-100">
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={handleTest}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm border border-gray-200"
-                >
-                  <TestTube className="h-4 w-4" />
-                  テスト
-                </button>
-                
-                <button
-                  onClick={handleReset}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm border border-gray-200"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  リセット
-                </button>
-                
-                <button
-                  onClick={handleHelp}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm border border-gray-200"
-                >
-                  <HelpCircle className="h-4 w-4" />
-                  ヘルプ
-                </button>
-                
-                <button
-                  onClick={handleDelete}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 rounded-md hover:bg-red-100 transition-colors text-sm border border-red-200 ml-auto"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  削除
-                </button>
-              </div>
-            </div>
-              </>
-            ) : (
-              /* Results Tab */
-              <div className="p-4">
-                {moduleResult && <DiarizationResults result={moduleResult} />}
-              </div>
-            )}
           </>
         )}
       </div>
 
-      {/* Execution Monitor Section */}
-      <div className="border-t border-gray-100">
-        <button
-          onClick={() => setIsMonitorExpanded(!isMonitorExpanded)}
-          className="w-full p-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <Activity className={cn(
-              "h-4 w-4",
-              isExecuting ? "text-blue-500 animate-pulse" : "text-gray-500"
-            )} />
-            <span className="text-sm font-medium text-gray-900">実行モニター</span>
-            {isExecuting && (
-              <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
-                実行中
-              </span>
-            )}
-          </div>
-          {isMonitorExpanded ? (
-            <ChevronUp className="h-4 w-4 text-gray-500" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-gray-500" />
-          )}
-        </button>
-        
-        {isMonitorExpanded && (
-          <div className="border-t border-gray-100 bg-gray-50">
-            <div className="p-3">
-              <ExecutionMonitor className="max-h-80 overflow-y-auto" />
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 

@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     # pyannote.ai API Configuration
-    pyannote_api_key: str = Field(..., description="pyannote.ai API key")
+    pyannote_api_key: str = Field(default="", description="pyannote.ai API key")
     pyannote_base_url: str = Field(
         default="https://api.pyannote.ai/v1",
         description="pyannote.ai API base URL"
@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env.local"
         case_sensitive = False
+        extra = "ignore"  # Ignore extra environment variables
 
 
 # Global settings instance

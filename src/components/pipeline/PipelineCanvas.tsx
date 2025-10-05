@@ -113,9 +113,30 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
 
   const onNodeDragStop = useCallback(
     (event: React.MouseEvent, node: Node) => {
-      updateModulePosition(node.id, node.position);
+      // グリッドにスナップされた位置を取得
+      const snappedPosition = {
+        x: Math.round(node.position.x / 50) * 50,
+        y: Math.round(node.position.y / 50) * 50,
+      };
+
+      // 他のモジュールと重なっているかチェック（スワップ機能）
+      const overlappingModule = modules.find(m => {
+        if (m.id === node.id) return false;
+        const dx = Math.abs(m.position.x - snappedPosition.x);
+        const dy = Math.abs(m.position.y - snappedPosition.y);
+        return dx < 100 && dy < 100; // 100px以内なら重なっていると判定
+      });
+
+      if (overlappingModule) {
+        // 位置を交換
+        const { swapModulePositions } = usePipelineStore.getState();
+        swapModulePositions(node.id, overlappingModule.id);
+      } else {
+        // 通常の位置更新
+        updateModulePosition(node.id, snappedPosition);
+      }
     },
-    [updateModulePosition]
+    [updateModulePosition, modules]
   );
 
   const onNodeClick = useCallback(
@@ -159,25 +180,43 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
     setSelectorPosition(undefined);
   }, [targetEdgeId, selectorPosition, connections, addModule, screenToFlowPosition]);
 
-  // キーボードショートカット（Delete/Backspace）でノード削除
+  // キーボードショートカット（Delete/Backspace）でノード削除、Ctrl/Cmd + ↑↓で順序変更
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedModuleId) {
-        // 入力フィールドにフォーカスがある場合は削除しない
-        const activeElement = document.activeElement;
-        if (activeElement && (
-          activeElement.tagName === 'INPUT' || 
-          activeElement.tagName === 'TEXTAREA' ||
-          activeElement.tagName === 'SELECT'
-        )) {
-          return;
-        }
+      // 入力フィールドにフォーカスがある場合は処理しない
+      const activeElement = document.activeElement;
+      if (activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.tagName === 'SELECT'
+      )) {
+        return;
+      }
 
+      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedModuleId) {
         event.preventDefault();
         const selectedModule = modules.find(m => m.id === selectedModuleId);
         if (selectedModule && window.confirm(`"${selectedModule.name}" モジュールを削除しますか？`)) {
           removeModule(selectedModuleId);
           selectModule(null);
+        }
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key === 'ArrowUp' && selectedModuleId) {
+        event.preventDefault();
+        const currentIndex = modules.findIndex(m => m.id === selectedModuleId);
+        if (currentIndex > 0) {
+          const { moveModuleUp } = usePipelineStore.getState();
+          moveModuleUp(selectedModuleId);
+        }
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key === 'ArrowDown' && selectedModuleId) {
+        event.preventDefault();
+        const currentIndex = modules.findIndex(m => m.id === selectedModuleId);
+        if (currentIndex < modules.length - 1) {
+          const { moveModuleDown } = usePipelineStore.getState();
+          moveModuleDown(selectedModuleId);
         }
       }
     };
@@ -241,6 +280,8 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
         minZoom={0.3}
         maxZoom={2}
         defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
+        snapToGrid={true}
+        snapGrid={[50, 50]}
       >
         <Background color="#f1f5f9" gap={20} />
         <Controls className="bg-white border border-gray-200 rounded-lg shadow-lg" />

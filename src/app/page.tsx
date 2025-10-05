@@ -24,21 +24,24 @@ export default function Home() {
       <Header />
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Module Library - Hidden on mobile */}
-        <ModuleLibrary className="w-80 flex-shrink-0 hidden lg:block" />
+        <div className="w-80 flex-shrink-0 hidden lg:flex flex-col">
+          <ModuleLibrary className="flex-1 min-h-0" />
+        </div>
 
         {/* Pipeline Canvas */}
         <div className="flex-1 flex flex-col min-w-0">
           <PipelineCanvas className="flex-1" />
         </div>
 
-        {/* Properties Panel - Responsive width, hidden when no selection on mobile */}
+        {/* Properties Panel - Responsive width, hidden when no selection */}
         <PropertiesPanel 
           className={`
             w-full sm:w-96 lg:w-80 
             flex-shrink-0 
-            ${selectedModuleId ? 'block' : 'hidden lg:block'}
+            h-full
+            ${selectedModuleId ? 'fixed inset-0 z-50 lg:relative lg:z-auto' : 'hidden'}
           `} 
         />
       </div>
@@ -46,7 +49,7 @@ export default function Home() {
       {/* Mobile FAB (Floating Action Button) */}
       <button
         onClick={() => setIsMobileMenuOpen(true)}
-        className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg flex items-center justify-center z-40 transition-transform active:scale-95"
+        className={`lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg flex items-center justify-center z-40 transition-transform active:scale-95 ${selectedModuleId ? 'hidden' : ''}`}
       >
         <Plus className="h-6 w-6" />
       </button>
