@@ -39,11 +39,6 @@ interface PipelineState {
   updateModulePosition: (moduleId: string, position: { x: number; y: number }) => void;
   updateModuleParameters: (moduleId: string, parameters: Record<string, string | number | boolean>) => void;
   selectModule: (moduleId: string | null) => void;
-  reorderModule: (moduleId: string, newIndex: number) => void;
-  moveModuleUp: (moduleId: string) => void;
-  moveModuleDown: (moduleId: string) => void;
-  swapModulePositions: (moduleId1: string, moduleId2: string) => void;
-  autoArrangeModules: () => void;
   
   // Connection actions
   addConnection: (connection: Omit<Connection, 'id'>) => void;
@@ -180,105 +175,6 @@ export const usePipelineStore = create<PipelineState>()(
 
       selectModule: (moduleId: string | null) => {
         set({ selectedModuleId: moduleId });
-      },
-
-      reorderModule: (moduleId: string, newIndex: number) => {
-        set(state => {
-          const modules = [...state.modules];
-          const currentIndex = modules.findIndex(m => m.id === moduleId);
-          
-          if (currentIndex === -1 || newIndex < 0 || newIndex >= modules.length) {
-            return state;
-          }
-          
-          const [module] = modules.splice(currentIndex, 1);
-          modules.splice(newIndex, 0, module);
-          
-          return { modules };
-        });
-      },
-
-      moveModuleUp: (moduleId: string) => {
-        const { modules, reorderModule } = get();
-        const currentIndex = modules.findIndex(m => m.id === moduleId);
-        
-        if (currentIndex > 0) {
-          reorderModule(moduleId, currentIndex - 1);
-        }
-      },
-
-      moveModuleDown: (moduleId: string) => {
-        const { modules, reorderModule } = get();
-        const currentIndex = modules.findIndex(m => m.id === moduleId);
-        
-        if (currentIndex < modules.length - 1 && currentIndex !== -1) {
-          reorderModule(moduleId, currentIndex + 1);
-        }
-      },
-
-      swapModulePositions: (moduleId1: string, moduleId2: string) => {
-        set(state => {
-          const module1 = state.modules.find(m => m.id === moduleId1);
-          const module2 = state.modules.find(m => m.id === moduleId2);
-          
-          if (!module1 || !module2) return state;
-          
-          const pos1 = { ...module1.position };
-          const pos2 = { ...module2.position };
-          
-          return {
-            modules: state.modules.map(m => {
-              if (m.id === moduleId1) return { ...m, position: pos2 };
-              if (m.id === moduleId2) return { ...m, position: pos1 };
-              return m;
-            })
-          };
-        });
-      },
-
-      autoArrangeModules: () => {
-        set(state => {
-          const { modules } = state;
-          if (modules.length === 0) return state;
-
-          // グラフの構造を分析して自動整列
-          const arranged = [...modules];
-          
-          // タイプ別にグループ化
-          const typeGroups: Record<string, ModuleInstance[]> = {
-            input: [],
-            vad: [],
-            processing: [],
-            output: [],
-          };
-          
-          arranged.forEach(module => {
-            const group = typeGroups[module.type] || typeGroups.processing;
-            group.push(module);
-          });
-          
-          // 各グループを配置
-          let currentY = 100;
-          const newModules = [];
-          
-          for (const [type, groupModules] of Object.entries(typeGroups)) {
-            if (groupModules.length === 0) continue;
-            
-            groupModules.forEach((module, index) => {
-              newModules.push({
-                ...module,
-                position: {
-                  x: 200 + index * 300,
-                  y: currentY,
-                }
-              });
-            });
-            
-            currentY += 200;
-          }
-          
-          return { modules: newModules };
-        });
       },
 
       // Connection actions
@@ -449,11 +345,10 @@ export const usePipelineStore = create<PipelineState>()(
             
             // 結果を保存（pyannoteモジュールとJSON出力ノードに）
             const saveResult = (moduleId: string) => {
-              // ローカル処理では output_gs_uri が空文字列の場合がある
-              if (result.speaker_count !== undefined && result.segment_count !== undefined) {
+              if (result.output_gs_uri && result.speaker_count !== undefined && result.segment_count !== undefined) {
                 get().setDiarizationResult(moduleId, {
                   status: result.status,
-                  output_gs_uri: result.output_gs_uri || '', // 空でもOK
+                  output_gs_uri: result.output_gs_uri,
                   speaker_count: result.speaker_count,
                   segment_count: result.segment_count
                 });

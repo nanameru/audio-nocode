@@ -320,80 +320,38 @@ export class AudioProcessingAPI {
   }
 
   /**
-   * Process audio locally in Cloud Run using existing upload-pyannote31 endpoint
+   * Process audio locally in Cloud Run (no Vertex AI Custom Jobs)
+   * 即座に処理開始、Job待ち時間ゼロ
    */
   async processLocal(
     file: File,
     options: Pyannote31Options = {}
   ): Promise<{ status: string; output_gs_uri: string; speaker_count: number; segment_count: number }> {
-    // 1) Create FormData with file and options
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    // Add optional parameters as query params
-    const params = new URLSearchParams();
-    if (options.numSpeakers !== undefined) {
-      params.append('num_speakers', options.numSpeakers.toString());
-    }
-    if (options.minSpeakers !== undefined) {
-      params.append('min_speakers', options.minSpeakers.toString());
-    }
-    if (options.maxSpeakers !== undefined) {
-      params.append('max_speakers', options.maxSpeakers.toString());
-    }
-    if (options.useGpu !== undefined) {
-      params.append('use_gpu', options.useGpu.toString());
-    }
-    if (options.progressMonitoring !== undefined) {
-      params.append('progress_monitoring', options.progressMonitoring.toString());
-    }
-    if (options.memoryOptimized !== undefined) {
-      params.append('memory_optimized', options.memoryOptimized.toString());
-    }
-    
-    // 2) Upload file and start processing
-    console.log('processLocal: Uploading file to /api/diarization/upload-pyannote31');
-    const uploadResponse = await fetch(`${this.baseUrl}/api/diarization/upload-pyannote31?${params}`, {
+    // 1) Get signed URL
+    const { signed_url, gs_uri } = await this.getSignedUrl(file.name, file.type);
+
+    // 2) Upload to GCS
+    await this.uploadToGCS(file, signed_url);
+
+    // 3) Start local processing
+    console.log('processLocal: Sending request with useGpu =', options.useGpu);
+    const response = await fetch(`${this.baseUrl}/process-local`, {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        input_gs_uri: gs_uri,
+        use_gpu: options.useGpu !== undefined ? options.useGpu : true, // デフォルトはGPU
+      }),
     });
 
-    if (!uploadResponse.ok) {
-      const error = await uploadResponse.json();
-      throw new Error(error.detail || `Upload failed: ${uploadResponse.status}`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || `Local processing failed: ${response.status}`);
     }
 
-    const jobCreationResponse = await uploadResponse.json();
-    const jobId = jobCreationResponse.jobId;
-    
-    console.log('processLocal: Job created:', jobId);
-    
-    // 3) Wait for job completion
-    await this.waitForJobCompletion(jobId);
-    
-    // 4) Get job result
-    const jobStatusResponse = await fetch(`${this.baseUrl}/api/diarization/jobs/${jobId}`);
-    
-    if (!jobStatusResponse.ok) {
-      throw new Error(`Failed to get job status: ${jobStatusResponse.status}`);
-    }
-    
-    const jobStatus = await jobStatusResponse.json();
-    
-    // 5) Convert result to expected format
-    if (jobStatus.status === 'completed' && jobStatus.result) {
-      const result = jobStatus.result;
-      return {
-        status: 'completed',
-        output_gs_uri: '', // ローカル処理なのでGCS URIはない
-        speaker_count: result.num_speakers || 0,
-        segment_count: result.total_segments || 0,
-      };
-    } else if (jobStatus.status === 'failed') {
-      throw new Error(jobStatus.error_message || 'Diarization failed');
-    } else {
-      throw new Error(`Unexpected job status: ${jobStatus.status}`);
-    }
+    return response.json();
   }
 }
 
