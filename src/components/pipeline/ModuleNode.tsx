@@ -2,7 +2,7 @@
 
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { Loader2, CheckCircle, XCircle, Circle, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Circle, X } from 'lucide-react';
 import { ModuleInstance } from '@/types/pipeline';
 import { getModuleDefinition } from '@/data/modules';
 import { usePipelineStore } from '@/store/pipeline';
@@ -53,7 +53,7 @@ function ProgressBar({ progress }: { progress: number }) {
 }
 
 const ModuleNodeComponent = ({ data }: ModuleNodeProps) => {
-  const { selectedModuleId, removeModule, selectModule, moveModuleUp, moveModuleDown, modules } = usePipelineStore();
+  const { selectedModuleId, removeModule, selectModule } = usePipelineStore();
   const definition = getModuleDefinition(data.definitionId);
   
   if (!definition) {
@@ -68,10 +68,6 @@ const ModuleNodeComponent = ({ data }: ModuleNodeProps) => {
   const isSelected = selectedModuleId === data.id;
   const hasInputs = definition.inputPorts.length > 0;
   const hasOutputs = definition.outputPorts.length > 0;
-  
-  const currentIndex = modules.findIndex(m => m.id === data.id);
-  const canMoveUp = currentIndex > 0;
-  const canMoveDown = currentIndex < modules.length - 1 && currentIndex !== -1;
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -82,16 +78,6 @@ const ModuleNodeComponent = ({ data }: ModuleNodeProps) => {
       }
       removeModule(data.id);
     }
-  };
-
-  const handleMoveUp = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    moveModuleUp(data.id);
-  };
-
-  const handleMoveDown = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    moveModuleDown(data.id);
   };
 
   return (
@@ -114,28 +100,6 @@ const ModuleNodeComponent = ({ data }: ModuleNodeProps) => {
       >
         <X className="h-3 w-3" />
       </button>
-
-      {/* Move Up Button */}
-      {canMoveUp && (
-        <button
-          onClick={handleMoveUp}
-          className="absolute top-1 -right-8 w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-10"
-          title="順序を上に移動"
-        >
-          <ChevronUp className="h-3 w-3" />
-        </button>
-      )}
-
-      {/* Move Down Button */}
-      {canMoveDown && (
-        <button
-          onClick={handleMoveDown}
-          className="absolute bottom-1 -right-8 w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-10"
-          title="順序を下に移動"
-        >
-          <ChevronDown className="h-3 w-3" />
-        </button>
-      )}
 
       {/* Input Handles */}
       {hasInputs && (

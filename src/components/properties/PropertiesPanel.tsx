@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePipelineStore } from '@/store/pipeline';
 import { getModuleDefinition } from '@/data/modules';
 import { ModuleParameter } from '@/types/pipeline';
-import { RotateCcw, Trash2, ChevronDown, ChevronUp, Settings, BarChart3, X, ArrowUp, ArrowDown } from 'lucide-react';
+import { RotateCcw, Trash2, ChevronDown, ChevronUp, Settings, BarChart3, X } from 'lucide-react';
 import { InfoIcon } from '@/components/ui/InfoIcon';
 import { DiarizationResults } from '@/components/results/DiarizationResults';
 import { cn } from '@/lib/utils';
@@ -151,9 +151,7 @@ export function PropertiesPanel({ className, width, onResizeStart }: PropertiesP
     updateModuleParameters,
     removeModule,
     selectModule,
-    diarizationResults,
-    moveModuleUp,
-    moveModuleDown
+    diarizationResults
   } = usePipelineStore();
 
   const selectedModule = modules.find(m => m.id === selectedModuleId);
@@ -258,24 +256,6 @@ export function PropertiesPanel({ className, width, onResizeStart }: PropertiesP
                 <div className="flex-1">
                   <h3 className="text-sm font-medium text-gray-900">{selectedModule.name}</h3>
                   <p className="text-xs text-gray-500">{definition.description}</p>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <button
-                    onClick={() => moveModuleUp(selectedModule.id)}
-                    disabled={modules.findIndex(m => m.id === selectedModule.id) === 0}
-                    className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="上に移動"
-                  >
-                    <ArrowUp className="h-3.5 w-3.5 text-gray-600" />
-                  </button>
-                  <button
-                    onClick={() => moveModuleDown(selectedModule.id)}
-                    disabled={modules.findIndex(m => m.id === selectedModule.id) === modules.length - 1}
-                    className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="下に移動"
-                  >
-                    <ArrowDown className="h-3.5 w-3.5 text-gray-600" />
-                  </button>
                 </div>
               </div>
               

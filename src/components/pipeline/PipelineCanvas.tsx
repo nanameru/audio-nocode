@@ -202,23 +202,6 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
         }
       }
 
-      if ((event.metaKey || event.ctrlKey) && event.key === 'ArrowUp' && selectedModuleId) {
-        event.preventDefault();
-        const currentIndex = modules.findIndex(m => m.id === selectedModuleId);
-        if (currentIndex > 0) {
-          const { moveModuleUp } = usePipelineStore.getState();
-          moveModuleUp(selectedModuleId);
-        }
-      }
-
-      if ((event.metaKey || event.ctrlKey) && event.key === 'ArrowDown' && selectedModuleId) {
-        event.preventDefault();
-        const currentIndex = modules.findIndex(m => m.id === selectedModuleId);
-        if (currentIndex < modules.length - 1) {
-          const { moveModuleDown } = usePipelineStore.getState();
-          moveModuleDown(selectedModuleId);
-        }
-      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
