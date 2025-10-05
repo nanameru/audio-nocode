@@ -362,47 +362,13 @@ export const usePipelineStore = create<PipelineState>()(
             outputModules.forEach(module => saveResult(module.id));
             
           } else {
-            // Use standard pyannote API (Vertex AI Custom Jobs)
-            const options: DiarizationOptions = {};
-            
-            pyannoteModules.forEach(module => {
-              const params = module.parameters;
-              if (typeof params.model === 'string') options.model = params.model as 'precision-1' | 'precision-2' | 'precision-3';
-              if (typeof params.numSpeakers === 'number') options.numSpeakers = params.numSpeakers;
-              if (typeof params.minSpeakers === 'number') options.minSpeakers = params.minSpeakers;
-              if (typeof params.maxSpeakers === 'number') options.maxSpeakers = params.maxSpeakers;
-              if (typeof params.turnLevelConfidence === 'boolean') options.turnLevelConfidence = params.turnLevelConfidence;
-              if (typeof params.exclusive === 'boolean') options.exclusive = params.exclusive;
-              if (typeof params.confidence === 'boolean') options.confidence = params.confidence;
+            // pyannote 3.1 モジュールが必要です
+            addExecutionLog({
+              level: 'error',
+              message: 'パイプラインにpyannote 3.1モジュールが含まれていません',
+              details: '話者分離を行うには、pyannote 3.1モジュールをパイプラインに追加してください'
             });
-            
-            // Update progress: uploading
-            updateExecutionProgress(inputModule.id, 25);
-            pyannoteModules.forEach(m => updateExecutionProgress(m.id, 10));
-            
-            // Execute standard diarization (Cloud Run + Vertex AI)
-            console.log('Starting Cloud Run diarization with options:', options);
-            const job = await audioProcessingAPI.uploadAndDiarize(inputFile, options);
-            
-            // Update progress: processing
-            updateExecutionProgress(inputModule.id, 50);
-            pyannoteModules.forEach(m => updateExecutionProgress(m.id, 50));
-            
-            // Wait for completion and get results
-            result = await audioProcessingAPI.waitForJobCompletion(job.job_id, {
-              onStatusUpdate: (status) => {
-                console.log('Job status update:', status);
-                const progress = status.status === 'RUNNING' ? 75 : 
-                               status.status === 'SUCCEEDED' ? 100 : 50;
-                pyannoteModules.forEach(m => updateExecutionProgress(m.id, progress));
-              }
-            });
-            
-            // Update final progress
-            updateExecutionProgress(inputModule.id, 100);
-            pyannoteModules.forEach(m => updateExecutionProgress(m.id, 100));
-            
-            console.log('Diarization completed:', result);
+            throw new Error('pyannote 3.1モジュールが必要です。パイプラインに追加してください。');
           }
           
           // Update module status to completed
