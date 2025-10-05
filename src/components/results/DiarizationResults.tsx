@@ -51,7 +51,10 @@ export function DiarizationResults({ result }: DiarizationResultsProps) {
         setIsLoadingSegments(true);
         const data = await audioProcessingAPI.downloadResult(result.output_gs_uri);
         
-        if (data.segments && Array.isArray(data.segments)) {
+        // データが配列そのものか、segments プロパティを持つオブジェクトか判定
+        if (Array.isArray(data)) {
+          setSegments(data);
+        } else if (data.segments && Array.isArray(data.segments)) {
           setSegments(data.segments);
         }
       } catch (error) {
