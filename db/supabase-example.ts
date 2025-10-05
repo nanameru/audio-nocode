@@ -26,9 +26,37 @@ export interface Workflow {
   updated_at: string;
 }
 
+export interface AudioFile {
+  id: string;
+  filename: string;
+  original_filename: string;
+  gs_uri: string;
+  file_size_bytes?: number;
+  duration_seconds?: number;
+  format?: string;
+  sample_rate?: number;
+  channels?: number;
+  uploaded_at: string;
+  created_at: string;
+}
+
+export interface WorkflowExecution {
+  id: string;
+  workflow_id: string;
+  audio_file_id?: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  started_at?: string;
+  completed_at?: string;
+  total_duration_ms?: number;
+  error_message?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
 export interface ExecutionLog {
   id: string;
   workflow_id: string;
+  workflow_execution_id?: string;
   level: 'info' | 'success' | 'warning' | 'error';
   message: string;
   details?: string;
@@ -40,6 +68,7 @@ export interface ExecutionLog {
 export interface ExecutionResult {
   id: string;
   workflow_id: string;
+  workflow_execution_id?: string;
   module_id: string;
   module_name: string;
   status: 'success' | 'error';
@@ -176,6 +205,214 @@ export async function deleteWorkflow(id: string): Promise<void> {
 }
 
 // ============================================================================
+// Audio File Operations
+// ============================================================================
+
+/**
+ * 音声ファイルを登録
+ */
+export async function registerAudioFile(
+  filename: string,
+  originalFilename: string,
+  gsUri: string,
+  options?: {
+    fileSizeBytes?: number;
+    durationSeconds?: number;
+    format?: string;
+    sampleRate?: number;
+    channels?: number;
+  }
+): Promise<AudioFile> {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase
+    .from('audio_files')
+    .insert({
+      filename,
+      original_filename: originalFilename,
+      gs_uri: gsUri,
+      file_size_bytes: options?.fileSizeBytes,
+      duration_seconds: options?.durationSeconds,
+      format: options?.format,
+      sample_rate: options?.sampleRate,
+      channels: options?.channels,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * GCS URIから音声ファイルを取得
+ */
+export async function getAudioFileByGsUri(gsUri: string): Promise<AudioFile | null> {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase
+    .from('audio_files')
+    .select('*')
+    .eq('gs_uri', gsUri)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null; // Not found
+    throw error;
+  }
+
+  return data;
+}
+
+/**
+ * すべての音声ファイルを取得
+ */
+export async function listAudioFiles(limit = 50): Promise<AudioFile[]> {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase
+    .from('audio_files')
+    .select('*')
+    .order('uploaded_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data || [];
+}
+
+/**
+ * 音声ファイルを削除
+ */
+export async function deleteAudioFile(id: string): Promise<void> {
+  const supabase = getSupabaseClient();
+
+  const { error } = await supabase
+    .from('audio_files')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+// ============================================================================
+// Workflow Execution Operations
+// ============================================================================
+
+/**
+ * ワークフロー実行を開始（ヘルパー関数使用）
+ */
+export async function startWorkflowExecution(
+  workflowId: string,
+  audioFileId?: string,
+  metadata?: Record<string, any>
+): Promise<string> {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase.rpc('start_workflow_execution', {
+    p_workflow_id: workflowId,
+    p_audio_file_id: audioFileId || null,
+    p_metadata: metadata || null,
+  });
+
+  if (error) throw error;
+  return data; // 実行ID
+}
+
+/**
+ * ワークフロー実行を完了（ヘルパー関数使用）
+ */
+export async function completeWorkflowExecution(
+  executionId: string,
+  status: 'completed' | 'failed' | 'cancelled' = 'completed',
+  errorMessage?: string
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase.rpc('complete_workflow_execution', {
+    p_execution_id: executionId,
+    p_status: status,
+    p_error_message: errorMessage || null,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * ワークフロー実行を取得
+ */
+export async function getWorkflowExecution(id: string): Promise<WorkflowExecution | null> {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase
+    .from('workflow_executions')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null; // Not found
+    throw error;
+  }
+
+  return data;
+}
+
+/**
+ * ワークフローの実行履歴を取得
+ */
+export async function getWorkflowExecutions(
+  workflowId: string,
+  limit = 50
+): Promise<WorkflowExecution[]> {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase
+    .from('workflow_executions')
+    .select('*')
+    .eq('workflow_id', workflowId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data || [];
+}
+
+/**
+ * 実行中のワークフローを取得
+ */
+export async function getActiveExecutions(): Promise<WorkflowExecution[]> {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase
+    .from('active_executions')
+    .select('*');
+
+  if (error) throw error;
+  return data || [];
+}
+
+/**
+ * ワークフロー実行の詳細を取得（音声ファイル情報を含む）
+ */
+export async function getWorkflowExecutionDetails(executionId: string) {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase
+    .from('workflow_execution_details')
+    .select('*')
+    .eq('execution_id', executionId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null; // Not found
+    throw error;
+  }
+
+  return data;
+}
+
+// ============================================================================
 // Execution Log Operations
 // ============================================================================
 
@@ -187,6 +424,7 @@ export async function addExecutionLog(
   level: ExecutionLog['level'],
   message: string,
   options?: {
+    workflowExecutionId?: string;
     details?: string;
     moduleName?: string;
     timestamp?: Date;
@@ -198,6 +436,7 @@ export async function addExecutionLog(
     .from('execution_logs')
     .insert({
       workflow_id: workflowId,
+      workflow_execution_id: options?.workflowExecutionId,
       level,
       message,
       details: options?.details,
@@ -261,6 +500,7 @@ export async function saveExecutionResult(
   moduleName: string,
   status: 'success' | 'error',
   options?: {
+    workflowExecutionId?: string;
     outputGsUri?: string;
     speakerCount?: number;
     segmentCount?: number;
@@ -275,6 +515,7 @@ export async function saveExecutionResult(
     .from('execution_results')
     .insert({
       workflow_id: workflowId,
+      workflow_execution_id: options?.workflowExecutionId,
       module_id: moduleId,
       module_name: moduleName,
       status,

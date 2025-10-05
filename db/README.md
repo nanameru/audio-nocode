@@ -4,6 +4,18 @@
 
 ## 📊 テーブル構成
 
+### **データベース全体の関係:**
+```
+audio_files (音声ファイル)
+    ↓
+workflow_executions (実行履歴) ← workflows (ワークフロー定義)
+    ↓
+├── execution_logs (ログ)
+└── execution_results (結果)
+```
+
+---
+
 ### 1. `workflows` - ワークフロー定義
 パイプラインの設定を保存します。
 
@@ -54,7 +66,87 @@
 
 ---
 
-### 2. `execution_logs` - 実行ログ
+### 2. `audio_files` - 音声ファイル管理
+アップロードされた音声ファイルのメタデータを保存します。
+
+| カラム名 | 型 | 説明 |
+|---------|-----|------|
+| id | UUID | 主キー |
+| filename | TEXT | GCS上のファイル名 |
+| original_filename | TEXT | 元のファイル名 |
+| gs_uri | TEXT | GCS URI |
+| file_size_bytes | BIGINT | ファイルサイズ（バイト） |
+| duration_seconds | DECIMAL | 音声の長さ（秒） |
+| format | TEXT | ファイル形式（wav, mp3など） |
+| sample_rate | INTEGER | サンプリングレート（Hz） |
+| channels | INTEGER | チャンネル数 |
+| uploaded_at | TIMESTAMPTZ | アップロード日時 |
+| created_at | TIMESTAMPTZ | レコード作成日時 |
+
+**例:**
+```sql
+INSERT INTO audio_files (
+  filename, 
+  original_filename, 
+  gs_uri, 
+  file_size_bytes, 
+  duration_seconds, 
+  format, 
+  sample_rate, 
+  channels
+)
+VALUES (
+  'sample_20250106_123456.wav',
+  'meeting_recording.wav',
+  'gs://audio-processing-studio/uploads/sample_20250106_123456.wav',
+  15728640,
+  300.5,
+  'wav',
+  16000,
+  1
+);
+```
+
+---
+
+### 3. `workflow_executions` - ワークフロー実行履歴
+ワークフロー全体の実行を1つの単位として管理します。
+
+| カラム名 | 型 | 説明 |
+|---------|-----|------|
+| id | UUID | 主キー |
+| workflow_id | UUID | ワークフローID（外部キー） |
+| audio_file_id | UUID | 音声ファイルID（外部キー） |
+| status | TEXT | 実行ステータス |
+| started_at | TIMESTAMPTZ | 実行開始日時 |
+| completed_at | TIMESTAMPTZ | 実行完了日時 |
+| total_duration_ms | INTEGER | 総実行時間（ミリ秒） |
+| error_message | TEXT | エラーメッセージ |
+| metadata | JSONB | 追加情報 |
+| created_at | TIMESTAMPTZ | レコード作成日時 |
+
+**ステータス:** `pending`, `running`, `completed`, `failed`, `cancelled`
+
+**例:**
+```typescript
+// ワークフロー実行を開始
+const { data: execution } = await supabase
+  .rpc('start_workflow_execution', {
+    p_workflow_id: workflowId,
+    p_audio_file_id: audioFileId
+  });
+
+// 実行を完了
+await supabase
+  .rpc('complete_workflow_execution', {
+    p_execution_id: execution.id,
+    p_status: 'completed'
+  });
+```
+
+---
+
+### 4. `execution_logs` - 実行ログ
 パイプライン実行時のログを保存します。
 
 | カラム名 | 型 | 説明 |
@@ -82,7 +174,7 @@ VALUES (
 
 ---
 
-### 3. `execution_results` - 実行結果
+### 5. `execution_results` - 実行結果
 モジュールの実行結果を保存します。
 
 | カラム名 | 型 | 説明 |
