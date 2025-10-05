@@ -165,10 +165,15 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
     (selectedModule.type === 'diarization' || selectedModule.type === 'output') && 
     moduleResult !== null;
   
-  // モジュール変更時にプロパティタブに戻る
+  // モジュール変更時にプロパティタブに戻る、ただし結果がある場合は結果タブを表示
   useEffect(() => {
-    setActiveTab('properties');
-  }, [selectedModuleId]);
+    // 結果がある場合は結果タブを自動的に表示
+    if (moduleResult) {
+      setActiveTab('results');
+    } else {
+      setActiveTab('properties');
+    }
+  }, [selectedModuleId, moduleResult]);
 
   const handleParameterChange = (parameterKey: string, value: string | number | boolean) => {
     if (!selectedModule) return;

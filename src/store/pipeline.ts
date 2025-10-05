@@ -380,6 +380,18 @@ export const usePipelineStore = create<PipelineState>()(
             )
           }));
           
+          // 処理完了後、pyannoteモジュールを自動選択して結果を表示
+          const { selectModule } = get();
+          if (pyannoteModules.length > 0) {
+            selectModule(pyannoteModules[0].id);
+            
+            addExecutionLog({
+              level: 'success',
+              message: '結果を表示しています。右側のパネルで「結果」タブを確認してください。',
+              module: pyannoteModules[0].name
+            });
+          }
+          
         } catch (error) {
           console.error('Pipeline execution failed:', error);
           
