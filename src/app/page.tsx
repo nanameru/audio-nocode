@@ -12,11 +12,36 @@ import { usePipelineStore } from '@/store/pipeline';
 export default function Home() {
   const { createPipeline, selectedModuleId } = usePipelineStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [panelWidth, setPanelWidth] = useState(400); // デフォルト幅 400px
+  const [isResizing, setIsResizing] = useState(false);
 
   useEffect(() => {
     // Create a default pipeline on first load
     createPipeline('New Pipeline', 'Drag modules from the library to start building your audio processing pipeline');
   }, [createPipeline]);
+
+  // リサイズ処理
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = window.innerWidth - e.clientX;
+      // 最小幅300px、最大幅800px
+      setPanelWidth(Math.min(Math.max(newWidth, 300), 800));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -35,14 +60,15 @@ export default function Home() {
           <PipelineCanvas className="flex-1" />
         </div>
 
-        {/* Properties Panel - Responsive width, hidden when no selection */}
+        {/* Properties Panel - Resizable width, hidden when no selection */}
         <PropertiesPanel 
           className={`
-            w-full sm:w-96 lg:w-80 
             flex-shrink-0 
             h-full
             ${selectedModuleId ? 'fixed inset-0 z-50 lg:relative lg:z-auto' : 'hidden'}
-          `} 
+          `}
+          width={selectedModuleId ? panelWidth : undefined}
+          onResizeStart={() => setIsResizing(true)}
         />
       </div>
 

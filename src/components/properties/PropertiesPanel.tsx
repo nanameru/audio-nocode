@@ -13,6 +13,8 @@ type TabType = 'properties' | 'results';
 
 interface PropertiesPanelProps {
   className?: string;
+  width?: number;
+  onResizeStart?: () => void;
 }
 
 interface ParameterFieldProps {
@@ -140,7 +142,7 @@ function ParameterField({ parameter, value, onChange }: ParameterFieldProps) {
   );
 }
 
-export function PropertiesPanel({ className }: PropertiesPanelProps) {
+export function PropertiesPanel({ className, width, onResizeStart }: PropertiesPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('properties');
   
   const { 
@@ -206,7 +208,19 @@ export function PropertiesPanel({ className }: PropertiesPanelProps) {
   };
 
   return (
-    <div className={cn('bg-white border-l border-gray-200 flex flex-col h-full', className)}>
+    <div 
+      className={cn('bg-white border-l border-gray-200 flex flex-col h-full relative', className)}
+      style={width ? { width: `${width}px` } : undefined}
+    >
+      {/* Resize Handle */}
+      <div
+        onMouseDown={onResizeStart}
+        className="absolute left-0 top-0 bottom-0 w-1 hover:w-1.5 bg-transparent hover:bg-purple-400 cursor-col-resize z-50 transition-all group"
+        title="ドラッグして幅を変更"
+      >
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-gray-300 group-hover:bg-purple-500 rounded-r transition-colors" />
+      </div>
+
       {/* Properties Header */}
       <div className="p-4 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-900">プロパティ</h3>
