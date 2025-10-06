@@ -291,9 +291,6 @@ export const usePipelineStore = create<PipelineState>()(
               if (typeof params.batchSize === 'string') options.batchSize = params.batchSize as 'small' | 'medium' | 'large' | 'auto';
             });
             
-            // Always use pyannote 3.1 model
-            options.model = '3.1';
-            
             // Update progress: uploading
             addExecutionLog({
               level: 'info',
@@ -322,11 +319,10 @@ export const usePipelineStore = create<PipelineState>()(
             pyannoteModules.forEach(m => updateExecutionProgress(m.id, 20));
             
             // Execute pyannote LOCAL processing
-            const modelName = options.model === 'community-1' ? 'Community-1' : '3.1';
             addExecutionLog({
               level: 'info',
-              message: `pyannote ${modelName} 話者分離処理を開始`,
-              details: `GPU: ${options.useGpu ? '有効' : '無効'}, Model: ${modelName}`,
+              message: `pyannote 3.1 話者分離処理を開始`,
+              details: `GPU: ${options.useGpu ? '有効' : '無効'}`,
               module: pyannoteModules[0]?.name
             });
             updateExecutionProgress(inputModule.id, 60);
@@ -372,7 +368,7 @@ export const usePipelineStore = create<PipelineState>()(
             addExecutionLog({
               level: 'error',
               message: 'パイプラインにpyannote話者分離モジュールが含まれていません',
-              details: '話者分離を行うには、pyannote 3.1 または Community-1 モジュールをパイプラインに追加してください'
+              details: '話者分離を行うには、pyannote 3.1 モジュールをパイプラインに追加してください'
             });
             throw new Error('pyannote話者分離モジュールが必要です。パイプラインに追加してください。');
           }
