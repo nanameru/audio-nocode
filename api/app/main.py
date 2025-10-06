@@ -211,10 +211,13 @@ def load_pipeline(model_name: str):
     model_path = AVAILABLE_MODELS[model_name]
     
     try:
-        # モデル名に応じてトークンパラメータを選択
-        if model_name == "3.1":
+        # pyannote.audio のバージョンに応じて適切なパラメータを使用
+        print(f"🔄 Trying to load with use_auth_token...")
+        try:
             pipeline = Pipeline.from_pretrained(model_path, use_auth_token=HF_TOKEN_SECRET)
-        else:
+        except TypeError:
+            # use_auth_token が使えない場合は token を試す
+            print(f"🔄 Retrying with token parameter...")
             pipeline = Pipeline.from_pretrained(model_path, token=HF_TOKEN_SECRET)
         
         pipeline.to(device)
