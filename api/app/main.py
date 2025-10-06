@@ -211,10 +211,10 @@ def load_pipeline(model_name: str):
     model_path = AVAILABLE_MODELS[model_name]
     
     try:
-        # pyannote.audio 4.x では token パラメータを使用
+        # pyannote.audio 3.x では use_auth_token を使用（現在の安定版）
         # https://huggingface.co/pyannote/speaker-diarization-community-1
-        print(f"🔄 Loading with token parameter (pyannote.audio 4.x)...")
-        pipeline = Pipeline.from_pretrained(model_path, token=HF_TOKEN_SECRET)
+        print(f"🔄 Loading with use_auth_token parameter (pyannote.audio 3.x)...")
+        pipeline = Pipeline.from_pretrained(model_path, use_auth_token=HF_TOKEN_SECRET)
         
         pipeline.to(device)
         loaded_pipelines[model_name] = pipeline
