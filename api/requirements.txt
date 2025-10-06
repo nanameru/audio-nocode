@@ -13,4 +13,4 @@ numpy<2
 torch==2.2.2+cu118
 torchaudio==2.2.2+cu118
 --extra-index-url https://download.pytorch.org/whl/cu118
-pyannote.audio==3.1.1
+pyannote.audio>=3.3.0
