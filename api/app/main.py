@@ -140,12 +140,11 @@ from collections import OrderedDict
 # 利用可能なモデル定義
 AVAILABLE_MODELS = {
     "3.1": "pyannote/speaker-diarization-3.1",
-    "community-1": "pyannote/speaker-diarization-community-1",
 }
 
 # グローバル変数：動的ロードされたパイプライン
 loaded_pipelines = OrderedDict()
-MAX_LOADED_MODELS = 2  # 同時に2個までメモリに載せる
+MAX_LOADED_MODELS = 1  # pyannote 3.1 のみ
 device = None
 
 @app.on_event("startup")

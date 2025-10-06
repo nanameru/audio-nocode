@@ -231,8 +231,7 @@ export const usePipelineStore = create<PipelineState>()(
           const pyannoteModules = modules.filter(m => 
             m.definitionId === 'vad-pyannote' || 
             m.definitionId === 'diar-pyannote' || 
-            m.definitionId === 'diar-pyannote31' ||
-            m.definitionId === 'diar-pyannote-community1'
+            m.definitionId === 'diar-pyannote31'
           );
           
           if (!inputModule || pyannoteModules.length === 0) {
@@ -258,10 +257,9 @@ export const usePipelineStore = create<PipelineState>()(
             details: `ファイル: ${inputFile.name} (${(inputFile.size / 1024 / 1024).toFixed(2)} MB)`
           });
           
-          // Check if we have pyannote modules (3.1 or Community-1)
+          // Check if we have pyannote 3.1 module
           const hasPyannoteModule = pyannoteModules.some(m => 
-            m.definitionId === 'diar-pyannote31' || 
-            m.definitionId === 'diar-pyannote-community1'
+            m.definitionId === 'diar-pyannote31'
           );
           
           // Collect parameters from pyannote modules
@@ -293,14 +291,8 @@ export const usePipelineStore = create<PipelineState>()(
               if (typeof params.batchSize === 'string') options.batchSize = params.batchSize as 'small' | 'medium' | 'large' | 'auto';
             });
             
-            // モデル選択（モジュールIDから判定）
-            pyannoteModules.forEach(m => {
-              if (m.definitionId === 'diar-pyannote-community1') {
-                options.model = 'community-1';
-              } else if (m.definitionId === 'diar-pyannote31') {
-                options.model = '3.1';
-              }
-            });
+            // Always use pyannote 3.1 model
+            options.model = '3.1';
             
             // Update progress: uploading
             addExecutionLog({
