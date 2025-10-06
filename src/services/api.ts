@@ -117,49 +117,6 @@ export class AudioProcessingAPI {
     }
   }
 
-  /**
-   * Upload audio file and start diarization (New Cloud Run flow)
-   */
-  async uploadAndDiarize(
-    file: File,
-    options: DiarizationOptions = {}
-  ): Promise<JobCreationResponse> {
-    // 1) Get signed URL
-    const { signed_url, gs_uri } = await this.getSignedUrl(file.name, file.type);
-
-    // 2) Upload to GCS
-    await this.uploadToGCS(file, signed_url);
-
-    // 3) Start Vertex AI job
-    const response = await fetch(`${this.baseUrl}/jobs`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        input_gs_uri: gs_uri,
-        use_gpu: options.useGpu !== undefined ? options.useGpu : true,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || `Job creation failed: ${response.status}`);
-    }
-
-    return response.json();
-  }
-
-  /**
-   * Upload audio file and start pyannote 3.1 diarization (Cloud Run flow)
-   */
-  async uploadAndDiarizePyannote31(
-    file: File,
-    options: Pyannote31Options = {}
-  ): Promise<JobCreationResponse> {
-    // Cloud Run と同じフローを使用（pyannote 3.1 がデフォルト）
-    return this.uploadAndDiarize(file, options);
-  }
 
   /**
    * Start diarization from URL
@@ -194,49 +151,6 @@ export class AudioProcessingAPI {
     return response.json();
   }
 
-  /**
-   * Get job status and results
-   */
-  async getJobStatus(jobId: string): Promise<DiarizationJob> {
-    const response = await fetch(`${this.baseUrl}/jobs/${jobId}`);
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || `Failed to get job status: ${response.status}`);
-    }
-    
-    return response.json();
-  }
-
-  /**
-   * Stream job progress via SSE
-   */
-  subscribeToJobProgress(
-    jobId: string,
-    onMessage: (data: { state?: string; status?: string; message?: string }) => void,
-    onError?: (error: Error) => void
-  ): EventSource {
-    const eventSource = new EventSource(`${this.baseUrl}/events/${jobId}`);
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        onMessage(data);
-      } catch (err) {
-        console.error('Failed to parse SSE message:', err);
-      }
-    };
-
-    eventSource.onerror = (err) => {
-      console.error('SSE error:', err);
-      if (onError) {
-        onError(new Error('SSE connection error'));
-      }
-      eventSource.close();
-    };
-
-    return eventSource;
-  }
 
   /**
    * Download result JSON from GCS using signed URL
@@ -267,71 +181,6 @@ export class AudioProcessingAPI {
     return response.json();
   }
 
-  /**
-   * List all jobs
-   */
-  async listJobs(): Promise<DiarizationJob[]> {
-    const response = await fetch(`${this.baseUrl}/api/diarization/jobs`);
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || `Failed to list jobs: ${response.status}`);
-    }
-    
-    return response.json();
-  }
-
-  /**
-   * Cancel and remove a job
-   */
-  async cancelJob(jobId: string): Promise<{ message: string }> {
-    const response = await fetch(`${this.baseUrl}/api/diarization/jobs/${jobId}`, {
-      method: 'DELETE',
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || `Failed to cancel job: ${response.status}`);
-    }
-    
-    return response.json();
-  }
-
-  /**
-   * Poll job status until completion
-   */
-  async waitForJobCompletion(
-    jobId: string,
-    options: {
-      pollInterval?: number;
-      maxWaitTime?: number;
-      onStatusUpdate?: (status: DiarizationJob) => void;
-    } = {}
-  ): Promise<DiarizationJob> {
-    const { pollInterval = 5000, maxWaitTime = 1800000, onStatusUpdate } = options; // 30分（CPUモード対応）
-    const startTime = Date.now();
-
-    while (true) {
-      const status = await this.getJobStatus(jobId);
-      
-      if (onStatusUpdate) {
-        onStatusUpdate(status);
-      }
-
-      // Check if job is completed
-      if (['SUCCEEDED', 'FAILED', 'CANCELLED'].includes(status.status)) {
-        return status;
-      }
-
-      // Check timeout
-      if (Date.now() - startTime > maxWaitTime) {
-        throw new Error(`Job ${jobId} did not complete within ${maxWaitTime}ms`);
-      }
-
-      // Wait before next poll
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
-    }
-  }
 
   /**
    * Process audio locally in Cloud Run (no Vertex AI Custom Jobs)
