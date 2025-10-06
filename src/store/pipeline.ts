@@ -258,13 +258,16 @@ export const usePipelineStore = create<PipelineState>()(
             details: `ファイル: ${inputFile.name} (${(inputFile.size / 1024 / 1024).toFixed(2)} MB)`
           });
           
-          // Check if we have pyannote 3.1 modules
-          const hasPyannote31 = pyannoteModules.some(m => m.definitionId === 'diar-pyannote31');
+          // Check if we have pyannote modules (3.1 or Community-1)
+          const hasPyannoteModule = pyannoteModules.some(m => 
+            m.definitionId === 'diar-pyannote31' || 
+            m.definitionId === 'diar-pyannote-community1'
+          );
           
           // Collect parameters from pyannote modules
           let result: { status: string; output_gs_uri?: string; speaker_count?: number; segment_count?: number; output?: string };
           
-          if (hasPyannote31) {
+          if (hasPyannoteModule) {
             // Use pyannote 3.1 LOCAL processing (Cloud Run constant residence)
             const options: Pyannote31Options = {};
             
