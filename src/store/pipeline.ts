@@ -288,11 +288,13 @@ export const usePipelineStore = create<PipelineState>()(
               if (typeof params.minDuration === 'number') options.minDuration = params.minDuration;
               if (typeof params.clusteringThreshold === 'number') options.clusteringThreshold = params.clusteringThreshold;
               if (typeof params.batchSize === 'string') options.batchSize = params.batchSize as 'small' | 'medium' | 'large' | 'auto';
-              
-              // モデル選択（モジュールIDから判定）
-              if (m.id === 'diar-pyannote-community1') {
+            });
+            
+            // モデル選択（モジュールIDから判定）
+            pyannoteModules.forEach(m => {
+              if (m.definitionId === 'diar-pyannote-community1') {
                 options.model = 'community-1';
-              } else if (m.id === 'diar-pyannote31') {
+              } else if (m.definitionId === 'diar-pyannote31') {
                 options.model = '3.1';
               }
             });
@@ -371,13 +373,13 @@ export const usePipelineStore = create<PipelineState>()(
             outputModules.forEach(module => saveResult(module.id));
             
           } else {
-            // pyannote 3.1 モジュールが必要です
+            // pyannote モジュールが必要です
             addExecutionLog({
               level: 'error',
-              message: 'パイプラインにpyannote 3.1モジュールが含まれていません',
-              details: '話者分離を行うには、pyannote 3.1モジュールをパイプラインに追加してください'
+              message: 'パイプラインにpyannote話者分離モジュールが含まれていません',
+              details: '話者分離を行うには、pyannote 3.1 または Community-1 モジュールをパイプラインに追加してください'
             });
-            throw new Error('pyannote 3.1モジュールが必要です。パイプラインに追加してください。');
+            throw new Error('pyannote話者分離モジュールが必要です。パイプラインに追加してください。');
           }
           
           // Update module status to completed
