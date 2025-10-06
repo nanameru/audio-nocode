@@ -231,7 +231,8 @@ export const usePipelineStore = create<PipelineState>()(
           const pyannoteModules = modules.filter(m => 
             m.definitionId === 'vad-pyannote' || 
             m.definitionId === 'diar-pyannote' || 
-            m.definitionId === 'diar-pyannote31'
+            m.definitionId === 'diar-pyannote31' ||
+            m.definitionId === 'diar-pyannote-community1'
           );
           
           if (!inputModule || pyannoteModules.length === 0) {
