@@ -135,53 +135,114 @@ async def create_download_url(request: DownloadUrlRequest):
 
 # ===== Cloud Run 常駐版: pyannote.audio を内蔵 =====
 
-# グローバル変数でpyannoteパイプラインを保持
-pipeline = None
+from collections import OrderedDict
+
+# 利用可能なモデル定義
+AVAILABLE_MODELS = {
+    "3.1": "pyannote/speaker-diarization-3.1",
+    "community-1": "pyannote/speaker-diarization-community-1",
+}
+
+# グローバル変数：動的ロードされたパイプライン
+loaded_pipelines = OrderedDict()
+MAX_LOADED_MODELS = 2  # 同時に2個までメモリに載せる
+device = None
 
 @app.on_event("startup")
 async def startup_event():
-    """起動時にpyannoteパイプラインを初期化（1回だけ）"""
-    global pipeline
-    print("🚀 Initializing pyannote.audio pipeline...")
+    """起動時にデバイスを設定"""
+    global device
+    print("🚀 Initializing pyannote.audio system...")
     
     try:
-        from pyannote.audio import Pipeline
         import torch
         
-        # Hugging Face トークンを取得
+        # Hugging Face トークンを確認
         token = HF_TOKEN_SECRET
         if not token:
-            print("⚠️  HF_TOKEN not found, pipeline initialization skipped")
+            print("⚠️  HF_TOKEN not found")
             return
-        
-        # パイプラインをロード
-        pipeline = Pipeline.from_pretrained(
-            "pyannote/speaker-diarization-3.1",
-            use_auth_token=token
-        )
         
         # GPU/CPU自動選択
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        pipeline.to(device)
-        
-        print(f"✅ Pipeline loaded on {device}")
+        print(f"✅ Device set to {device}")
+        print(f"📋 Available models: {list(AVAILABLE_MODELS.keys())}")
+        print(f"💾 Max loaded models: {MAX_LOADED_MODELS}")
         
     except Exception as e:
-        print(f"❌ Failed to initialize pipeline: {e}")
-        pipeline = None
+        print(f"❌ Failed to initialize: {e}")
+
+
+def get_pipeline(model_name: str):
+    """モデルを取得（必要に応じて動的にロード）"""
+    # キャッシュヒット
+    if model_name in loaded_pipelines:
+        print(f"✅ Using cached model: {model_name}")
+        loaded_pipelines.move_to_end(model_name)  # LRU: 最新使用として更新
+        return loaded_pipelines[model_name]
+    
+    # キャッシュミス → ロード
+    return load_pipeline(model_name)
+
+
+def load_pipeline(model_name: str):
+    """新しいモデルを動的にロード"""
+    import torch
+    from pyannote.audio import Pipeline
+    
+    # モデル名の検証
+    if model_name not in AVAILABLE_MODELS:
+        raise ValueError(f"Unknown model: {model_name}. Available: {list(AVAILABLE_MODELS.keys())}")
+    
+    # メモリが満杯なら最も古いモデルを削除
+    if len(loaded_pipelines) >= MAX_LOADED_MODELS:
+        oldest_model = next(iter(loaded_pipelines))
+        print(f"🗑️  Unloading least used model: {oldest_model}")
+        del loaded_pipelines[oldest_model]
+        
+        # GPU/CPUメモリを解放
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        import gc
+        gc.collect()
+    
+    # 新しいモデルをロード
+    print(f"📦 Loading model: {model_name}...")
+    model_path = AVAILABLE_MODELS[model_name]
+    
+    try:
+        # モデル名に応じてトークンパラメータを選択
+        if model_name == "3.1":
+            pipeline = Pipeline.from_pretrained(model_path, use_auth_token=HF_TOKEN_SECRET)
+        else:
+            pipeline = Pipeline.from_pretrained(model_path, token=HF_TOKEN_SECRET)
+        
+        pipeline.to(device)
+        loaded_pipelines[model_name] = pipeline
+        
+        print(f"✅ Model loaded: {model_name} (total loaded: {len(loaded_pipelines)})")
+        return pipeline
+        
+    except Exception as e:
+        print(f"❌ Failed to load {model_name}: {e}")
+        raise
 
 
 class ProcessLocalRequest(BaseModel):
     input_gs_uri: str
     output_gs_uri: Optional[str] = None
     use_gpu: bool = True  # デフォルトはGPU
+    model: str = "3.1"  # デフォルトは3.1（後方互換性）
 
 
 @app.post("/process-local")
 async def process_local(request: ProcessLocalRequest):
     """Cloud Run内で直接処理（Vertex AI不要、Job待ちゼロ）"""
-    if pipeline is None:
-        raise HTTPException(status_code=503, detail="Pipeline not initialized")
+    # 動的にパイプラインを取得
+    try:
+        pipeline = get_pipeline(request.model)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Failed to load model '{request.model}': {str(e)}")
     
     # デバッグログ：use_gpu の値を確認
     print(f"🔍 DEBUG: process-local use_gpu = {request.use_gpu}")

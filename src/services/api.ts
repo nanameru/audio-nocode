@@ -46,7 +46,7 @@ export interface DiarizationOptions {
   useGpu?: boolean;
 }
 
-export interface Pyannote31Options extends DiarizationOptions {
+export interface Pyannote31Options extends Omit<DiarizationOptions, 'model'> {
   // pyannote 3.1 specific parameters (useGpu is inherited from DiarizationOptions)
   progressMonitoring?: boolean;
   memoryOptimized?: boolean;
@@ -55,6 +55,7 @@ export interface Pyannote31Options extends DiarizationOptions {
   minDuration?: number;
   clusteringThreshold?: number;
   batchSize?: 'small' | 'medium' | 'large' | 'auto';
+  model?: string;  // モデル名（"3.1" or "community-1" など）
 }
 
 export class AudioProcessingAPI {
@@ -197,7 +198,7 @@ export class AudioProcessingAPI {
     await this.uploadToGCS(file, signed_url);
 
     // 3) Start local processing
-    console.log('processLocal: Sending request with useGpu =', options.useGpu);
+    console.log('processLocal: Sending request with useGpu =', options.useGpu, 'model =', options.model);
     const response = await fetch(`${this.baseUrl}/process-local`, {
       method: 'POST',
       headers: {
@@ -206,6 +207,7 @@ export class AudioProcessingAPI {
       body: JSON.stringify({
         input_gs_uri: gs_uri,
         use_gpu: options.useGpu !== undefined ? options.useGpu : true, // デフォルトはGPU
+        model: options.model || '3.1', // デフォルトは3.1（後方互換性）
       }),
     });
 

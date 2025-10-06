@@ -287,6 +287,13 @@ export const usePipelineStore = create<PipelineState>()(
               if (typeof params.minDuration === 'number') options.minDuration = params.minDuration;
               if (typeof params.clusteringThreshold === 'number') options.clusteringThreshold = params.clusteringThreshold;
               if (typeof params.batchSize === 'string') options.batchSize = params.batchSize as 'small' | 'medium' | 'large' | 'auto';
+              
+              // モデル選択（モジュールIDから判定）
+              if (m.id === 'diar-pyannote-community1') {
+                options.model = 'community-1';
+              } else if (m.id === 'diar-pyannote31') {
+                options.model = '3.1';
+              }
             });
             
             // Update progress: uploading
@@ -316,11 +323,12 @@ export const usePipelineStore = create<PipelineState>()(
             updateExecutionProgress(inputModule.id, 50);
             pyannoteModules.forEach(m => updateExecutionProgress(m.id, 20));
             
-            // Execute pyannote 3.1 LOCAL processing
+            // Execute pyannote LOCAL processing
+            const modelName = options.model === 'community-1' ? 'Community-1' : '3.1';
             addExecutionLog({
               level: 'info',
-              message: 'pyannote 3.1 話者分離処理を開始',
-              details: `GPU: ${options.useGpu ? '有効' : '無効'}`,
+              message: `pyannote ${modelName} 話者分離処理を開始`,
+              details: `GPU: ${options.useGpu ? '有効' : '無効'}, Model: ${modelName}`,
               module: pyannoteModules[0]?.name
             });
             updateExecutionProgress(inputModule.id, 60);

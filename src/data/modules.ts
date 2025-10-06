@@ -1059,6 +1059,59 @@ export const moduleDefinitions: ModuleDefinition[] = [
     outputPorts: ['speakers', 'segments', 'metrics', 'confidence', 'embeddings']
   },
   {
+    id: 'diar-pyannote-community1',
+    name: 'pyannote Community-1',
+    type: 'diarization',
+    icon: '🆕',
+    description: 'pyannote/speaker-diarization-community-1 最新モデル（精度向上版）',
+    color: '#10b981',
+    parameters: {
+      enabled: {
+        type: 'boolean',
+        label: '有効化',
+        description: 'pyannote Community-1話者分離を有効にする',
+        tooltip: 'pyannote/speaker-diarization-community-1による最新の高精度話者分離機能。3.1よりもさらに精度が向上しています。',
+        default: true
+      },
+      numSpeakers: {
+        type: 'number',
+        label: '正確な話者数',
+        description: '話者数が分かっている場合に指定（優先度最高）',
+        tooltip: '正確な話者数が分かっている場合に指定すると、分離精度が大幅に向上します。',
+        default: undefined,
+        min: 1,
+        max: 20
+      },
+      minSpeakers: {
+        type: 'number',
+        label: '最小話者数',
+        description: '想定される最小話者数',
+        tooltip: '音声に含まれる最小話者数を指定します。',
+        default: 1,
+        min: 1,
+        max: 10
+      },
+      maxSpeakers: {
+        type: 'number',
+        label: '最大話者数',
+        description: '想定される最大話者数',
+        tooltip: '音声に含まれる最大話者数を制限します。',
+        default: 5,
+        min: 2,
+        max: 20
+      },
+      useGpu: {
+        type: 'boolean',
+        label: 'GPU使用',
+        description: 'GPU加速を使用（利用可能な場合）',
+        tooltip: 'CUDA対応GPUが利用可能な場合、GPU加速により処理速度が大幅に向上します。',
+        default: true
+      }
+    },
+    inputPorts: ['audio'],
+    outputPorts: ['speakers', 'segments', 'metrics', 'confidence', 'embeddings']
+  },
+  {
     id: 'diar-eend-vc',
     name: 'EEND-VC',
     type: 'diarization',
