@@ -12,8 +12,9 @@ import { usePipelineStore } from '@/store/pipeline';
 export default function Home() {
   const { createPipeline, selectedModuleId } = usePipelineStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [panelWidth, setPanelWidth] = useState(400); // デフォルト幅 400px
+  const [panelWidth, setPanelWidth] = useState(400);
   const [isResizing, setIsResizing] = useState(false);
+  const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 0.8 });
 
   useEffect(() => {
     // Create a default pipeline on first load
@@ -57,7 +58,7 @@ export default function Home() {
 
         {/* Pipeline Canvas */}
         <div className="flex-1 flex flex-col min-w-0">
-          <PipelineCanvas className="flex-1" />
+          <PipelineCanvas className="flex-1" onViewportChange={setViewport} />
         </div>
 
         {/* Properties Panel - Resizable width, hidden when no selection */}
@@ -84,6 +85,7 @@ export default function Home() {
       <MobileModuleMenu
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
+        viewport={viewport}
       />
     </div>
   );

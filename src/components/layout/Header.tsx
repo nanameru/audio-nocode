@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Music, Settings, User, HelpCircle, Play, Square, Download, Upload, MoreVertical, Save, Plus, FolderOpen, ListPlus, Trash2, PlayCircle, StopCircle } from 'lucide-react';
+import { Music, Settings, User, HelpCircle, Play, Square, Download, Upload, MoreVertical, Save, Plus, FolderOpen, ListPlus, Trash2, PlayCircle, StopCircle, Layers } from 'lucide-react';
 import { usePipelineStore } from '@/store/pipeline';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/DropdownMenu';
@@ -31,6 +31,7 @@ export function Header() {
     clearQueue,
     startQueueProcessing,
     stopQueueProcessing,
+    autoLayoutModules,
   } = usePipelineStore();
   
   const pendingCount = executionQueue.filter(item => item.status === 'pending').length;
@@ -348,6 +349,15 @@ export function Header() {
                     </div>
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem
+                  onClick={autoLayoutModules}
+                  disabled={!currentPipeline}
+                >
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-4 w-4" />
+                    自動整列
+                  </div>
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={exportPipelineAsJSON}
                   disabled={!currentPipeline}

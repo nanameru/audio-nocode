@@ -9,15 +9,26 @@ import { usePipelineStore } from '@/store/pipeline';
 interface MobileModuleMenuProps {
   isOpen: boolean;
   onClose: () => void;
+  viewport?: { x: number; y: number; zoom: number };
 }
 
-export function MobileModuleMenu({ isOpen, onClose }: MobileModuleMenuProps) {
+export function MobileModuleMenu({ isOpen, onClose, viewport }: MobileModuleMenuProps) {
   const { modules, addModule, addConnection } = usePipelineStore();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const allModuleTypes = getAllModuleTypes();
 
   const handleModuleSelect = (definitionId: string) => {
-    const position = { x: 250 + modules.length * 50, y: 200 };
+    let position: { x: number; y: number };
+    if (viewport) {
+      const viewportCenterX = 200;
+      const viewportCenterY = 300;
+      position = {
+        x: (viewportCenterX - viewport.x) / viewport.zoom,
+        y: (viewportCenterY - viewport.y) / viewport.zoom,
+      };
+    } else {
+      position = { x: 250 + modules.length * 50, y: 200 };
+    }
     
     // Add module at calculated position
     addModule(definitionId, position);

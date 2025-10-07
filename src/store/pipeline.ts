@@ -85,6 +85,7 @@ interface PipelineState {
   validatePipeline: () => { isValid: boolean; errors: string[] };
   exportPipelineAsJSON: () => void;
   importPipelineFromJSON: (file: File) => Promise<void>;
+  autoLayoutModules: () => void;
 }
 
 export const usePipelineStore = create<PipelineState>()(
@@ -970,6 +971,91 @@ export const usePipelineStore = create<PipelineState>()(
             get().processQueue();
           }
         }
+      },
+
+      autoLayoutModules: () => {
+        const { modules, connections } = get();
+        
+        if (modules.length === 0) return;
+
+        const moduleMap = new Map(modules.map(m => [m.id, m]));
+        const childrenMap = new Map<string, string[]>();
+        const parentsMap = new Map<string, string[]>();
+        
+        modules.forEach(m => {
+          childrenMap.set(m.id, []);
+          parentsMap.set(m.id, []);
+        });
+        
+        connections.forEach(conn => {
+          childrenMap.get(conn.source)?.push(conn.target);
+          parentsMap.get(conn.target)?.push(conn.source);
+        });
+        
+        const rootModules = modules.filter(m => parentsMap.get(m.id)?.length === 0);
+        
+        if (rootModules.length === 0) {
+          const visited = new Set<string>();
+          let startModule = modules[0];
+          rootModules.push(startModule);
+        }
+        
+        const levels = new Map<string, number>();
+        const positioned = new Set<string>();
+        
+        const calculateLevel = (moduleId: string, level: number = 0) => {
+          if (positioned.has(moduleId)) return;
+          
+          const currentLevel = levels.get(moduleId) ?? -1;
+          if (level > currentLevel) {
+            levels.set(moduleId, level);
+          }
+          
+          const children = childrenMap.get(moduleId) || [];
+          children.forEach(childId => {
+            calculateLevel(childId, level + 1);
+          });
+        };
+        
+        rootModules.forEach(root => calculateLevel(root.id, 0));
+        
+        modules.forEach(m => {
+          if (!levels.has(m.id)) {
+            levels.set(m.id, 0);
+          }
+        });
+        
+        const levelGroups = new Map<number, string[]>();
+        levels.forEach((level, moduleId) => {
+          if (!levelGroups.has(level)) {
+            levelGroups.set(level, []);
+          }
+          levelGroups.get(level)!.push(moduleId);
+        });
+        
+        const horizontalSpacing = 350;
+        const verticalSpacing = 200;
+        const startX = 100;
+        const startY = 100;
+        
+        const updatedModules = modules.map(module => {
+          const level = levels.get(module.id) ?? 0;
+          const modulesInLevel = levelGroups.get(level) || [];
+          const indexInLevel = modulesInLevel.indexOf(module.id);
+          
+          const levelHeight = modulesInLevel.length;
+          const offsetY = (indexInLevel - (levelHeight - 1) / 2) * verticalSpacing;
+          
+          return {
+            ...module,
+            position: {
+              x: startX + level * horizontalSpacing,
+              y: startY + offsetY
+            }
+          };
+        });
+        
+        set({ modules: updatedModules });
       }
     }),
     {
