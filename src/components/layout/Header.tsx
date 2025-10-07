@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Music, Settings, User, HelpCircle, Save, Play, Square, Download, Upload, MoreVertical, Maximize2 } from 'lucide-react';
+import { Music, Settings, User, HelpCircle, Play, Square, Download, Upload, MoreVertical } from 'lucide-react';
 import { usePipelineStore } from '@/store/pipeline';
 import { cn } from '@/lib/utils';
-import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/DropdownMenu';
+import { DropdownMenu, DropdownMenuItem } from '@/components/ui/DropdownMenu';
 import { WorkflowManager } from '@/components/workflow/WorkflowManager';
 
 const navTabs = [
@@ -20,14 +20,11 @@ export function Header() {
   const { 
     currentPipeline, 
     isExecuting, 
-    startExecution, 
     stopExecution, 
     executePipeline,
-    savePipeline,
     validatePipeline,
     exportPipelineAsJSON,
     importPipelineFromJSON,
-    autoArrangeModules
   } = usePipelineStore();
 
   const handleExecute = async () => {
@@ -163,16 +160,6 @@ export function Header() {
                   </button>
                 }
               >
-                <DropdownMenuItem
-                  onClick={autoArrangeModules}
-                  disabled={!currentPipeline}
-                >
-                  <div className="flex items-center gap-2">
-                    <Maximize2 className="h-4 w-4" />
-                    自動整列
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={exportPipelineAsJSON}
                   disabled={!currentPipeline}

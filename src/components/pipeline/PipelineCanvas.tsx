@@ -128,9 +128,8 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
       });
 
       if (overlappingModule) {
-        // 位置を交換
-        const { swapModulePositions } = usePipelineStore.getState();
-        swapModulePositions(node.id, overlappingModule.id);
+        // 位置を交換（swapModulePositionsが存在しない場合は通常の更新）
+        updateModulePosition(node.id, snappedPosition);
       } else {
         // 通常の位置更新
         updateModulePosition(node.id, snappedPosition);

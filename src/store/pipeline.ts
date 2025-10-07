@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { ModuleInstance, Connection, Pipeline, SystemMetrics, DiarizationResult } from '@/types/pipeline';
 import { getModuleDefinition } from '@/data/modules';
-import { audioProcessingAPI, DiarizationOptions, Pyannote31Options } from '@/services/api';
+import { audioProcessingAPI, Pyannote31Options } from '@/services/api';
 import * as supabaseService from '@/services/supabase';
 
 export interface ExecutionLog {
@@ -489,13 +489,13 @@ export const usePipelineStore = create<PipelineState>()(
                 
                 // Supabaseに実行結果を保存
                 if (currentPipeline && !currentPipeline.id.startsWith('pipeline-')) {
-                  const module = modules.find(m => m.id === moduleId);
-                  if (module) {
+                  const moduleInstance = modules.find(m => m.id === moduleId);
+                  if (moduleInstance) {
                     supabaseService.saveExecutionResult({
                       workflowId: currentPipeline.id,
                       workflowExecutionId: executionId,
-                      moduleId: module.id,
-                      moduleName: module.name,
+                      moduleId: moduleInstance.id,
+                      moduleName: moduleInstance.name,
                       status: 'success',
                       outputGsUri: result.output_gs_uri,
                       speakerCount: result.speaker_count,

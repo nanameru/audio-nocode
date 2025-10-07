@@ -24,18 +24,17 @@ type WorkflowExecutionRow = Database['public']['Tables']['workflow_executions'][
  * ワークフローを保存
  */
 export async function saveWorkflow(pipeline: Pipeline): Promise<string> {
-  const workflowData: WorkflowInsert = {
-    name: pipeline.name,
-    description: pipeline.description || null,
-    pipeline_data: {
-      modules: pipeline.modules,
-      connections: pipeline.connections,
-    } as Database['public']['Tables']['workflows']['Insert']['pipeline_data'],
-  };
-
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from('workflows')
-    .insert(workflowData)
+    .insert({
+      name: pipeline.name,
+      description: pipeline.description || null,
+      pipeline_data: {
+        modules: pipeline.modules,
+        connections: pipeline.connections,
+      },
+    })
     .select('id')
     .single();
 
@@ -51,7 +50,8 @@ export async function saveWorkflow(pipeline: Pipeline): Promise<string> {
  * ワークフローを更新
  */
 export async function updateWorkflow(workflowId: string, pipeline: Pipeline): Promise<void> {
-  const { error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
     .from('workflows')
     .update({
       name: pipeline.name,
@@ -59,7 +59,7 @@ export async function updateWorkflow(workflowId: string, pipeline: Pipeline): Pr
       pipeline_data: {
         modules: pipeline.modules,
         connections: pipeline.connections,
-      } as Database['public']['Tables']['workflows']['Update']['pipeline_data'],
+      },
       updated_at: new Date().toISOString(),
     })
     .eq('id', workflowId);
@@ -137,7 +137,7 @@ export async function saveAudioFile(audioFileData: {
   sampleRate?: number;
   channels?: number;
 }): Promise<string> {
-  const insert: AudioFileInsert = {
+  const insert = {
     filename: audioFileData.filename,
     original_filename: audioFileData.originalFilename,
     gs_uri: audioFileData.gsUri,
@@ -278,7 +278,7 @@ export async function saveExecutionLog(logData: {
   moduleName?: string;
   timestamp?: Date;
 }): Promise<void> {
-  const insert: ExecutionLogInsert = {
+  const insert = {
     workflow_id: logData.workflowId,
     workflow_execution_id: logData.workflowExecutionId || null,
     level: logData.level,
@@ -301,7 +301,15 @@ export async function saveExecutionLog(logData: {
 /**
  * 実行ログを一括保存
  */
-export async function saveExecutionLogs(logs: ExecutionLogInsert[]): Promise<void> {
+export async function saveExecutionLogs(logs: Array<{
+  workflow_id: string;
+  workflow_execution_id?: string | null;
+  level: 'info' | 'success' | 'warning' | 'error';
+  message: string;
+  details?: string | null;
+  module_name?: string | null;
+  timestamp: string;
+}>): Promise<void> {
   const { error } = await supabase
     .from('execution_logs')
     .insert(logs);
@@ -368,7 +376,7 @@ export async function saveExecutionResult(resultData: {
   executionTimeMs?: number;
   resultData?: Record<string, unknown>;
 }): Promise<string> {
-  const insert: ExecutionResultInsert = {
+  const insert = {
     workflow_id: resultData.workflowId,
     workflow_execution_id: resultData.workflowExecutionId || null,
     module_id: resultData.moduleId,

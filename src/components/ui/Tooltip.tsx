@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 
@@ -43,7 +43,7 @@ export function Tooltip({
     setIsVisible(false);
   };
 
-  const updatePosition = () => {
+  const updatePosition = useCallback(() => {
     if (!triggerRef.current) return;
 
     const triggerRect = triggerRef.current.getBoundingClientRect();
@@ -73,7 +73,7 @@ export function Tooltip({
     }
 
     setTooltipPosition({ x, y });
-  };
+  }, [position]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -98,7 +98,7 @@ export function Tooltip({
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [isVisible]);
+  }, [isVisible, updatePosition]);
 
   const tooltipElement = isVisible && content ? (
     <div

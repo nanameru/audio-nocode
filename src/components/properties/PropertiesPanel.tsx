@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePipelineStore } from '@/store/pipeline';
 import { getModuleDefinition } from '@/data/modules';
 import { ModuleParameter } from '@/types/pipeline';
-import { RotateCcw, Trash2, ChevronDown, ChevronUp, Settings, BarChart3, X } from 'lucide-react';
+import { RotateCcw, Trash2, Settings, BarChart3, X } from 'lucide-react';
 import { InfoIcon } from '@/components/ui/InfoIcon';
 import { DiarizationResults } from '@/components/results/DiarizationResults';
 import { cn } from '@/lib/utils';
