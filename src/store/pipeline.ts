@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { ModuleInstance, Connection, Pipeline, SystemMetrics, DiarizationResult, QueueItem } from '@/types/pipeline';
+import { ModuleInstance, Connection, Pipeline, SystemMetrics, DiarizationResult, QueueItem, ExecutionHistoryEntry } from '@/types/pipeline';
 import { getModuleDefinition } from '@/data/modules';
 import { audioProcessingAPI, Pyannote31Options } from '@/services/api';
 import * as supabaseService from '@/services/supabase';
@@ -40,6 +40,9 @@ interface PipelineState {
   // Results
   diarizationResults: Record<string, DiarizationResult>; // moduleId -> result
   
+  // Execution history for diff comparison
+  executionHistory: ExecutionHistoryEntry[];
+  
   executionQueue: QueueItem[];
   isProcessingQueue: boolean;
   currentQueueItem: QueueItem | null;
@@ -76,6 +79,11 @@ interface PipelineState {
   setDiarizationResult: (moduleId: string, result: Omit<DiarizationResult, 'moduleId' | 'timestamp'>) => void;
   clearResults: () => void;
   
+  // Execution history actions
+  addExecutionToHistory: (entry: Omit<ExecutionHistoryEntry, 'id'>) => void;
+  getExecutionHistory: (workflowId?: string) => ExecutionHistoryEntry[];
+  clearExecutionHistory: () => void;
+  
   addToQueue: (file: File) => void;
   removeFromQueue: (queueItemId: string) => void;
   clearQueue: () => void;
@@ -106,6 +114,7 @@ export const usePipelineStore = create<PipelineState>()(
       diarizationResults: {},
       executionLogs: [],
       executionState: {},
+      executionHistory: [],
       executionQueue: [],
       isProcessingQueue: false,
       currentQueueItem: null,
@@ -594,6 +603,29 @@ export const usePipelineStore = create<PipelineState>()(
             }
           }
           
+          if (currentPipeline && inputFile && pyannoteModules.length > 0) {
+            const pyannoteModule = pyannoteModules[0];
+            const diarizationResult = get().diarizationResults[pyannoteModule.id];
+            
+            if (diarizationResult) {
+              const parameters: Record<string, Record<string, string | number | boolean>> = {};
+              modules.forEach(module => {
+                parameters[module.id] = { ...module.parameters };
+              });
+              
+              get().addExecutionToHistory({
+                executionId,
+                workflowId: currentPipeline.id,
+                workflowName: currentPipeline.name,
+                timestamp: new Date(),
+                audioFileName: inputFile.name,
+                audioFileSize: inputFile.size,
+                parameters,
+                result: diarizationResult,
+              });
+            }
+          }
+          
         } catch (error) {
           console.error('Pipeline execution failed:', error);
           
@@ -704,6 +736,34 @@ export const usePipelineStore = create<PipelineState>()(
 
       clearResults: () => {
         set({ diarizationResults: {} });
+      },
+      
+      // Execution history actions
+      addExecutionToHistory: (entry: Omit<ExecutionHistoryEntry, 'id'>) => {
+        const newEntry: ExecutionHistoryEntry = {
+          ...entry,
+          id: `execution-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        };
+        
+        set(state => ({
+          executionHistory: [newEntry, ...state.executionHistory].slice(0, 100) // Keep last 100 executions
+        }));
+        
+        console.log('Execution added to history:', newEntry);
+      },
+      
+      getExecutionHistory: (workflowId?: string) => {
+        const { executionHistory } = get();
+        
+        if (workflowId) {
+          return executionHistory.filter(entry => entry.workflowId === workflowId);
+        }
+        
+        return executionHistory;
+      },
+      
+      clearExecutionHistory: () => {
+        set({ executionHistory: [] });
       },
 
       // Utility actions

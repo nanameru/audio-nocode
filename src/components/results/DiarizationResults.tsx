@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { DiarizationResult } from '@/types/pipeline';
-import { Users, MessageSquare, Clock, CheckCircle, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { Users, MessageSquare, Clock, CheckCircle, Download, ChevronDown, ChevronUp, GitCompare } from 'lucide-react';
 import { audioProcessingAPI } from '@/services/api';
+import { ExecutionHistorySelector } from './ExecutionHistorySelector';
+import { usePipelineStore } from '@/store/pipeline';
 
 interface DiarizationResultsProps {
   result: DiarizationResult;
@@ -16,10 +18,15 @@ interface Segment {
 }
 
 export function DiarizationResults({ result }: DiarizationResultsProps) {
+  const { currentPipeline, getExecutionHistory } = usePipelineStore();
   const [isDownloading, setIsDownloading] = useState(false);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [isLoadingSegments, setIsLoadingSegments] = useState(false);
   const [showSegments, setShowSegments] = useState(false);
+  const [showHistorySelector, setShowHistorySelector] = useState(false);
+  
+  const history = currentPipeline ? getExecutionHistory(currentPipeline.id) : [];
+  const hasHistory = history.length > 1;
 
   const handleDownload = async () => {
     try {
@@ -192,15 +199,26 @@ export function DiarizationResults({ result }: DiarizationResultsProps) {
         )}
       </div>
 
-      {/* ダウンロードボタン */}
-      <button
-        onClick={handleDownload}
-        disabled={isDownloading}
-        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <Download className="h-4 w-4" />
-        {isDownloading ? 'ダウンロード中...' : '詳細データをダウンロード'}
-      </button>
+      <div className="space-y-2">
+        <button
+          onClick={handleDownload}
+          disabled={isDownloading}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Download className="h-4 w-4" />
+          {isDownloading ? 'ダウンロード中...' : '詳細データをダウンロード'}
+        </button>
+        
+        {hasHistory && (
+          <button
+            onClick={() => setShowHistorySelector(true)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 transition-colors text-sm font-medium"
+          >
+            <GitCompare className="h-4 w-4" />
+            過去の実行と差分比較
+          </button>
+        )}
+      </div>
 
       {/* 説明 */}
       <div className="text-xs text-gray-500 px-2">
@@ -209,6 +227,13 @@ export function DiarizationResults({ result }: DiarizationResultsProps) {
           詳細データには、各セグメントの開始・終了時刻と話者情報が含まれています。
         </p>
       </div>
+      
+      {showHistorySelector && (
+        <ExecutionHistorySelector
+          workflowId={currentPipeline?.id}
+          onClose={() => setShowHistorySelector(false)}
+        />
+      )}
     </div>
   );
 }
