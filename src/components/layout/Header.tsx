@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Music, Settings, User, HelpCircle, Play, Square, Download, Upload, MoreVertical } from 'lucide-react';
+import { Music, Settings, User, HelpCircle, Play, Square, Download, Upload, MoreVertical, Save, Plus, FolderOpen } from 'lucide-react';
 import { usePipelineStore } from '@/store/pipeline';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/DropdownMenu';
@@ -79,20 +79,23 @@ export function Header() {
 
   return (
     <header className="bg-white border-b border-gray-200 text-gray-900">
-      <div className="px-6 py-3">
-        <div className="flex items-center justify-between">
+      <div className="px-3 sm:px-6 py-2 sm:py-3">
+        <div className="flex items-center justify-between gap-2">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gray-900 rounded-md flex items-center justify-center">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink">
+            <div className="w-8 h-8 bg-gray-900 rounded-md flex items-center justify-center flex-shrink-0">
               <Music className="h-5 w-5 text-white" />
             </div>
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900">Audio Processing Studio</h1>
+            <div className="min-w-0 hidden sm:block">
+              <h1 className="text-lg font-semibold text-gray-900 truncate">Audio Processing Studio</h1>
               {currentPipeline && (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 truncate">
                   {currentPipeline.name}
                 </p>
               )}
+            </div>
+            <div className="min-w-0 sm:hidden">
+              <h1 className="text-base font-semibold text-gray-900 truncate">Audio Processing Studio</h1>
             </div>
           </div>
 
@@ -116,17 +119,102 @@ export function Header() {
           </nav>
 
           {/* Actions */}
-          <div className="flex items-center gap-2">
-            {/* Workflow Manager */}
-            <WorkflowManager />
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+            {/* Workflow Manager - Desktop only */}
+            <div className="hidden lg:block">
+              <WorkflowManager />
+            </div>
+            
+            {/* Workflow Manager - Mobile: Compact version with dropdown */}
+            <div className="lg:hidden">
+              <DropdownMenu
+                trigger={
+                  <button
+                    disabled={!currentPipeline}
+                    className={cn(
+                      'flex items-center justify-center p-2 rounded-md text-sm font-medium transition-colors border',
+                      currentPipeline
+                        ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
+                        : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                    )}
+                  >
+                    <Save className="h-4 w-4" />
+                  </button>
+                }
+              >
+                <DropdownMenuItem
+                  onClick={async () => {
+                    if (!currentPipeline) return;
+                    try {
+                      await usePipelineStore.getState().savePipeline();
+                      alert('ワークフローを保存しました');
+                    } catch (error) {
+                      console.error('Failed to save workflow:', error);
+                      alert('ワークフローの保存に失敗しました');
+                    }
+                  }}
+                  disabled={!currentPipeline}
+                >
+                  <div className="flex items-center gap-2">
+                    <Save className="h-4 w-4" />
+                    保存
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    const name = prompt('ワークフロー名を入力してください');
+                    if (name) {
+                      try {
+                        await usePipelineStore.getState().saveAsNewPipeline(name, '');
+                        alert('新しいワークフローとして保存しました');
+                      } catch (error) {
+                        console.error('Failed to save workflow:', error);
+                        alert('ワークフローの保存に失敗しました');
+                      }
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    名前を付けて保存
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    try {
+                      const allWorkflows = await usePipelineStore.getState().loadAllPipelines();
+                      if (allWorkflows.length === 0) {
+                        alert('保存されたワークフローがありません');
+                        return;
+                      }
+                      const workflowList = allWorkflows.map((w, i) => `${i + 1}. ${w.name}`).join('\n');
+                      const selection = prompt(`読み込むワークフローの番号を入力してください:\n${workflowList}`);
+                      const index = parseInt(selection || '') - 1;
+                      if (index >= 0 && index < allWorkflows.length) {
+                        await usePipelineStore.getState().loadPipelineFromSupabase(allWorkflows[index].id);
+                        alert('ワークフローを読み込みました');
+                      }
+                    } catch (error) {
+                      console.error('Failed to load workflows:', error);
+                      alert('ワークフローの読み込みに失敗しました');
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4" />
+                    読み込み
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenu>
+            </div>
             
             {/* Pipeline Controls */}
-            <div className="flex items-center gap-2 ml-2 pl-2 border-l border-gray-200">
+            <div className="flex items-center gap-1 sm:gap-2 sm:ml-2 sm:pl-2 sm:border-l border-gray-200">
               <button
                 onClick={handleExecute}
                 disabled={!currentPipeline}
                 className={cn(
-                  'flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border',
+                  'flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-md text-sm font-medium transition-colors border',
                   isExecuting
                     ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
                     : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed'
@@ -135,12 +223,12 @@ export function Header() {
                 {isExecuting ? (
                   <>
                     <Square className="h-4 w-4" />
-                    <span className="hidden sm:inline">停止</span>
+                    <span className="hidden md:inline">停止</span>
                   </>
                 ) : (
                   <>
                     <Play className="h-4 w-4" />
-                    <span className="hidden sm:inline">実行</span>
+                    <span className="hidden md:inline">実行</span>
                   </>
                 )}
               </button>
