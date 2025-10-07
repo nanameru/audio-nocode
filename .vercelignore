@@ -1,0 +1,26 @@
+# Python backend files (not needed for Next.js build)
+backend/
+api/
+worker/
+
+# Python files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+venv/
+.venv/
+env/
+
+# Documentation
+*.md
+!README.md
+
+# Development files
+.git/
+.github/
+scripts/
+
+# Docker
+docker-compose.yml
+Dockerfile
