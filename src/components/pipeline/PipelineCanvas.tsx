@@ -38,7 +38,8 @@ interface PipelineCanvasProps {
 
 function PipelineCanvasInner({ className }: PipelineCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const reactFlowInstance = useReactFlow();
+  const { screenToFlowPosition } = reactFlowInstance;
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [selectorPosition, setSelectorPosition] = useState<{ x: number; y: number } | undefined>();
   const [targetEdgeId, setTargetEdgeId] = useState<string | null>(null);
@@ -53,7 +54,23 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
     removeConnection,
     removeModule,
     selectModule,
+    setViewportCenterGetter,
   } = usePipelineStore();
+
+  React.useEffect(() => {
+    const getter = () => {
+      return reactFlowInstance.screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2
+      });
+    };
+    
+    setViewportCenterGetter(getter);
+    
+    return () => {
+      setViewportCenterGetter(undefined);
+    };
+  }, [reactFlowInstance, setViewportCenterGetter]);
 
   // Convert store data to ReactFlow format
   const nodes: Node[] = modules.map((module) => ({

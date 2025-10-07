@@ -18,7 +18,10 @@ export interface ExecutionState {
   audioFileId?: string; // Supabase audio_files ID
 }
 
+export type ViewportCenterGetter = () => { x: number; y: number } | undefined;
+
 interface PipelineState {
+  viewportCenterGetter?: ViewportCenterGetter;
   // Pipeline data
   currentPipeline: Pipeline | null;
   modules: ModuleInstance[];
@@ -85,6 +88,8 @@ interface PipelineState {
   validatePipeline: () => { isValid: boolean; errors: string[] };
   exportPipelineAsJSON: () => void;
   importPipelineFromJSON: (file: File) => Promise<void>;
+  
+  setViewportCenterGetter: (getter?: ViewportCenterGetter) => void;
 }
 
 export const usePipelineStore = create<PipelineState>()(
@@ -104,6 +109,7 @@ export const usePipelineStore = create<PipelineState>()(
       executionQueue: [],
       isProcessingQueue: false,
       currentQueueItem: null,
+      viewportCenterGetter: undefined,
 
       // Pipeline actions
       createPipeline: (name: string, description?: string) => {
@@ -989,7 +995,11 @@ export const usePipelineStore = create<PipelineState>()(
             get().processQueue();
           }
         }
-      }
+      },
+
+      setViewportCenterGetter: (getter?: ViewportCenterGetter) => {
+        set({ viewportCenterGetter: getter });
+      },
     }),
     {
       name: 'pipeline-store'

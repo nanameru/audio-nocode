@@ -9,9 +9,12 @@ import { useState } from 'react';
 import { usePipelineStore } from '@/store/pipeline';
 import { Pipeline } from '@/types/pipeline';
 import { Save, FolderOpen, Plus } from 'lucide-react';
-import { useReactFlow } from 'reactflow';
 
-export function WorkflowManager() {
+interface WorkflowManagerProps {
+  getViewportCenter?: () => { x: number; y: number } | undefined;
+}
+
+export function WorkflowManager({ getViewportCenter }: WorkflowManagerProps = {}) {
   const [workflows, setWorkflows] = useState<Pipeline[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
@@ -19,19 +22,13 @@ export function WorkflowManager() {
   const [workflowName, setWorkflowName] = useState('');
   const [workflowDescription, setWorkflowDescription] = useState('');
 
-  let reactFlowInstance;
-  try {
-    reactFlowInstance = useReactFlow();
-  } catch (e) {
-    reactFlowInstance = null;
-  }
-
   const { 
     currentPipeline,
     savePipeline, 
     saveAsNewPipeline,
     loadPipelineFromSupabase,
-    loadAllPipelines 
+    loadAllPipelines,
+    viewportCenterGetter
   } = usePipelineStore();
 
   // ワークフロー一覧を取得
@@ -53,14 +50,7 @@ export function WorkflowManager() {
   const handleSelectWorkflow = async (workflowId: string) => {
     setIsLoading(true);
     try {
-      let viewportCenter;
-      
-      if (reactFlowInstance) {
-        viewportCenter = reactFlowInstance.screenToFlowPosition({
-          x: window.innerWidth / 2,
-          y: window.innerHeight / 2
-        });
-      }
+      const viewportCenter = getViewportCenter?.() || viewportCenterGetter?.();
       
       await loadPipelineFromSupabase(workflowId, viewportCenter);
       setShowLoadDialog(false);
