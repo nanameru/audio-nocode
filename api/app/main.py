@@ -26,6 +26,7 @@ allowed_origins = [
     "http://127.0.0.1:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3001",
+    "https://audio-nocode.vercel.app",  # Vercel本番環境
 ] + [origin.strip() for origin in additional_origins if origin.strip()]
 
 app.add_middleware(
