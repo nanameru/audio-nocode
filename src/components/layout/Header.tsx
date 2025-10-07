@@ -5,6 +5,7 @@ import { Music, Settings, User, HelpCircle, Save, Play, Square, Download, Upload
 import { usePipelineStore } from '@/store/pipeline';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/DropdownMenu';
+import { WorkflowManager } from '@/components/workflow/WorkflowManager';
 
 const navTabs = [
   { id: 'projects', label: 'Projects', icon: '📁' },
@@ -119,8 +120,11 @@ export function Header() {
 
           {/* Actions */}
           <div className="flex items-center gap-2">
+            {/* Workflow Manager */}
+            <WorkflowManager />
+            
             {/* Pipeline Controls */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-2 pl-2 border-l border-gray-200">
               <button
                 onClick={handleExecute}
                 disabled={!currentPipeline}
@@ -142,15 +146,6 @@ export function Header() {
                     <span className="hidden sm:inline">実行</span>
                   </>
                 )}
-              </button>
-
-              <button
-                onClick={savePipeline}
-                disabled={!currentPipeline}
-                className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-900 text-white rounded-md text-sm font-medium transition-colors hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed"
-              >
-                <Save className="h-4 w-4" />
-                保存
               </button>
 
               <DropdownMenu

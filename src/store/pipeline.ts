@@ -3,6 +3,7 @@ import { devtools } from 'zustand/middleware';
 import { ModuleInstance, Connection, Pipeline, SystemMetrics, DiarizationResult } from '@/types/pipeline';
 import { getModuleDefinition } from '@/data/modules';
 import { audioProcessingAPI, DiarizationOptions, Pyannote31Options } from '@/services/api';
+import * as supabaseService from '@/services/supabase';
 
 export interface ExecutionLog {
   timestamp: Date;
@@ -10,6 +11,11 @@ export interface ExecutionLog {
   message: string;
   module?: string;
   details?: string;
+}
+
+export interface ExecutionState {
+  executionId?: string; // Supabase workflow_executions ID
+  audioFileId?: string; // Supabase audio_files ID
 }
 
 interface PipelineState {
@@ -25,13 +31,19 @@ interface PipelineState {
   systemMetrics: SystemMetrics | null;
   executionLogs: ExecutionLog[];
   
+  // Execution state (Supabase)
+  executionState: ExecutionState;
+  
   // Results
   diarizationResults: Record<string, DiarizationResult>; // moduleId -> result
   
   // Actions
   createPipeline: (name: string, description?: string) => void;
   loadPipeline: (pipeline: Pipeline) => void;
-  savePipeline: () => void;
+  savePipeline: () => Promise<string>;
+  saveAsNewPipeline: (name: string, description?: string) => Promise<string>;
+  loadPipelineFromSupabase: (workflowId: string) => Promise<void>;
+  loadAllPipelines: () => Promise<Pipeline[]>;
   
   // Module actions
   addModule: (definitionId: string, position: { x: number; y: number }) => void;
@@ -77,6 +89,7 @@ export const usePipelineStore = create<PipelineState>()(
       systemMetrics: null,
       diarizationResults: {},
       executionLogs: [],
+      executionState: {},
 
       // Pipeline actions
       createPipeline: (name: string, description?: string) => {
@@ -107,9 +120,11 @@ export const usePipelineStore = create<PipelineState>()(
         });
       },
 
-      savePipeline: () => {
+      savePipeline: async () => {
         const { currentPipeline, modules, connections } = get();
-        if (!currentPipeline) return;
+        if (!currentPipeline) {
+          throw new Error('保存するパイプラインがありません');
+        }
 
         const updatedPipeline: Pipeline = {
           ...currentPipeline,
@@ -118,10 +133,86 @@ export const usePipelineStore = create<PipelineState>()(
           updatedAt: new Date()
         };
 
-        set({ currentPipeline: updatedPipeline });
+        try {
+          // Supabaseに保存または更新
+          if (currentPipeline.id.startsWith('pipeline-')) {
+            // 新規作成（ローカルIDの場合）
+            const workflowId = await supabaseService.saveWorkflow(updatedPipeline);
+            updatedPipeline.id = workflowId;
+            set({ currentPipeline: updatedPipeline });
+            console.log('Workflow saved to Supabase:', workflowId);
+          } else {
+            // 既存を更新（Supabase IDの場合）
+            await supabaseService.updateWorkflow(currentPipeline.id, updatedPipeline);
+            set({ currentPipeline: updatedPipeline });
+            console.log('Workflow updated in Supabase:', currentPipeline.id);
+          }
+          
+          // ローカルストレージにもバックアップ
+          localStorage.setItem(`pipeline-${updatedPipeline.id}`, JSON.stringify(updatedPipeline));
+          
+          return updatedPipeline.id;
+        } catch (error) {
+          console.error('Failed to save pipeline:', error);
+          throw error;
+        }
+      },
+
+      saveAsNewPipeline: async (name: string, description?: string) => {
+        const { modules, connections } = get();
         
-        // TODO: Save to backend or localStorage
-        localStorage.setItem(`pipeline-${updatedPipeline.id}`, JSON.stringify(updatedPipeline));
+        const newPipeline: Pipeline = {
+          id: `pipeline-${Date.now()}`, // 一時ID
+          name,
+          description,
+          modules,
+          connections,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        try {
+          const workflowId = await supabaseService.saveWorkflow(newPipeline);
+          newPipeline.id = workflowId;
+          set({ currentPipeline: newPipeline });
+          console.log('New workflow saved to Supabase:', workflowId);
+          return workflowId;
+        } catch (error) {
+          console.error('Failed to save new pipeline:', error);
+          throw error;
+        }
+      },
+
+      loadPipelineFromSupabase: async (workflowId: string) => {
+        try {
+          const pipeline = await supabaseService.getWorkflow(workflowId);
+          if (!pipeline) {
+            throw new Error('ワークフローが見つかりません');
+          }
+          
+          set({
+            currentPipeline: pipeline,
+            modules: pipeline.modules,
+            connections: pipeline.connections,
+            selectedModuleId: null
+          });
+          
+          console.log('Workflow loaded from Supabase:', workflowId);
+        } catch (error) {
+          console.error('Failed to load pipeline:', error);
+          throw error;
+        }
+      },
+
+      loadAllPipelines: async () => {
+        try {
+          const pipelines = await supabaseService.getAllWorkflows();
+          console.log('All workflows loaded from Supabase:', pipelines.length);
+          return pipelines;
+        } catch (error) {
+          console.error('Failed to load pipelines:', error);
+          throw error;
+        }
       },
 
       // Module actions
@@ -216,10 +307,29 @@ export const usePipelineStore = create<PipelineState>()(
       },
 
       executePipeline: async (inputFile?: File) => {
-        const { modules, startExecution, stopExecution, updateExecutionProgress, addExecutionLog } = get();
+        const { modules, startExecution, stopExecution, updateExecutionProgress, addExecutionLog, currentPipeline } = get();
         
         try {
           startExecution();
+          
+          // Supabaseに実行開始を記録
+          let executionId: string | undefined;
+          let audioFileId: string | undefined;
+          
+          if (currentPipeline && !currentPipeline.id.startsWith('pipeline-')) {
+            try {
+              executionId = await supabaseService.startWorkflowExecution(currentPipeline.id);
+              set(state => ({
+                executionState: {
+                  ...state.executionState,
+                  executionId
+                }
+              }));
+              console.log('Workflow execution started in Supabase:', executionId);
+            } catch (error) {
+              console.error('Failed to start workflow execution in Supabase:', error);
+            }
+          }
           
           addExecutionLog({
             level: 'info',
@@ -318,6 +428,28 @@ export const usePipelineStore = create<PipelineState>()(
             updateExecutionProgress(inputModule.id, 50);
             pyannoteModules.forEach(m => updateExecutionProgress(m.id, 20));
             
+            // 音声ファイルのメタデータをSupabaseに保存
+            if (currentPipeline && !currentPipeline.id.startsWith('pipeline-')) {
+              try {
+                audioFileId = await supabaseService.saveAudioFile({
+                  filename: inputFile.name,
+                  originalFilename: inputFile.name,
+                  gsUri: gs_uri,
+                  fileSizeBytes: inputFile.size,
+                  format: inputFile.type.split('/')[1] || 'wav',
+                });
+                set(state => ({
+                  executionState: {
+                    ...state.executionState,
+                    audioFileId
+                  }
+                }));
+                console.log('Audio file saved to Supabase:', audioFileId);
+              } catch (error) {
+                console.error('Failed to save audio file to Supabase:', error);
+              }
+            }
+            
             // Execute pyannote LOCAL processing
             addExecutionLog({
               level: 'info',
@@ -354,6 +486,25 @@ export const usePipelineStore = create<PipelineState>()(
                   speaker_count: result.speaker_count,
                   segment_count: result.segment_count
                 });
+                
+                // Supabaseに実行結果を保存
+                if (currentPipeline && !currentPipeline.id.startsWith('pipeline-')) {
+                  const module = modules.find(m => m.id === moduleId);
+                  if (module) {
+                    supabaseService.saveExecutionResult({
+                      workflowId: currentPipeline.id,
+                      workflowExecutionId: executionId,
+                      moduleId: module.id,
+                      moduleName: module.name,
+                      status: 'success',
+                      outputGsUri: result.output_gs_uri,
+                      speakerCount: result.speaker_count,
+                      segmentCount: result.segment_count,
+                    }).catch(error => {
+                      console.error('Failed to save execution result to Supabase:', error);
+                    });
+                  }
+                }
               }
             };
             
@@ -394,6 +545,16 @@ export const usePipelineStore = create<PipelineState>()(
             });
           }
           
+          // Supabaseに実行完了を記録
+          if (executionId) {
+            try {
+              await supabaseService.completeWorkflowExecution(executionId, 'completed');
+              console.log('Workflow execution completed in Supabase');
+            } catch (error) {
+              console.error('Failed to complete workflow execution in Supabase:', error);
+            }
+          }
+          
         } catch (error) {
           console.error('Pipeline execution failed:', error);
           
@@ -401,6 +562,21 @@ export const usePipelineStore = create<PipelineState>()(
           set(state => ({
             modules: state.modules.map(m => ({ ...m, status: 'error' as const }))
           }));
+          
+          // Supabaseに実行失敗を記録
+          const { executionState } = get();
+          if (executionState.executionId) {
+            try {
+              await supabaseService.completeWorkflowExecution(
+                executionState.executionId,
+                'failed',
+                error instanceof Error ? error.message : '不明なエラー'
+              );
+              console.log('Workflow execution failed in Supabase');
+            } catch (supabaseError) {
+              console.error('Failed to record failure in Supabase:', supabaseError);
+            }
+          }
           
           throw error;
         } finally {
@@ -439,15 +615,34 @@ export const usePipelineStore = create<PipelineState>()(
       },
       
       addExecutionLog: (log: Omit<ExecutionLog, 'timestamp'>) => {
+        const newLog = {
+          ...log,
+          timestamp: new Date()
+        };
+        
         set(state => ({
           executionLogs: [
             ...state.executionLogs,
-            {
-              ...log,
-              timestamp: new Date()
-            }
+            newLog
           ]
         }));
+        
+        // Supabaseにログを保存
+        const { currentPipeline, executionState } = get();
+        if (currentPipeline && !currentPipeline.id.startsWith('pipeline-')) {
+          supabaseService.saveExecutionLog({
+            workflowId: currentPipeline.id,
+            workflowExecutionId: executionState.executionId,
+            level: log.level,
+            message: log.message,
+            details: log.details,
+            moduleName: log.module,
+            timestamp: newLog.timestamp,
+          }).catch(error => {
+            // ログ保存の失敗は致命的ではないので、コンソールに出力のみ
+            console.error('Failed to save execution log to Supabase:', error);
+          });
+        }
       },
       
       clearExecutionLogs: () => {
