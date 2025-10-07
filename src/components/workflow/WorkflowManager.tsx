@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { usePipelineStore } from '@/store/pipeline';
 import { Pipeline } from '@/types/pipeline';
 import { Save, FolderOpen, Plus } from 'lucide-react';
+import { useReactFlow } from 'reactflow';
 
 export function WorkflowManager() {
   const [workflows, setWorkflows] = useState<Pipeline[]>([]);
@@ -17,6 +18,13 @@ export function WorkflowManager() {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [workflowName, setWorkflowName] = useState('');
   const [workflowDescription, setWorkflowDescription] = useState('');
+
+  let reactFlowInstance;
+  try {
+    reactFlowInstance = useReactFlow();
+  } catch (e) {
+    reactFlowInstance = null;
+  }
 
   const { 
     currentPipeline,
@@ -45,7 +53,16 @@ export function WorkflowManager() {
   const handleSelectWorkflow = async (workflowId: string) => {
     setIsLoading(true);
     try {
-      await loadPipelineFromSupabase(workflowId);
+      let viewportCenter;
+      
+      if (reactFlowInstance) {
+        viewportCenter = reactFlowInstance.screenToFlowPosition({
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 2
+        });
+      }
+      
+      await loadPipelineFromSupabase(workflowId, viewportCenter);
       setShowLoadDialog(false);
       alert('ワークフローを読み込みました');
     } catch (error) {
