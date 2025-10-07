@@ -18,15 +18,19 @@ HF_TOKEN_SECRET = os.environ.get("HF_TOKEN", "")
 
 app = FastAPI(title="Meeting Audio Processing API")
 
-# CORS設定（開発環境用：複数オリジン対応）
+# CORS設定（本番環境対応）
+# 環境変数からの追加オリジンを取得
+additional_origins = os.environ.get("ALLOWED_ORIGINS", "").split(",")
+allowed_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+] + [origin.strip() for origin in additional_origins if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-    ],
+    allow_origins=allowed_origins if allowed_origins else ["*"],  # フォールバック
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
