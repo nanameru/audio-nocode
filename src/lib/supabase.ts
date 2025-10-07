@@ -6,22 +6,25 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/types/database';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Supabase環境変数が設定されていません。.env.localを確認してください。\n' +
+const isSupabaseConfigured = supabaseUrl && supabaseAnonKey;
+
+if (!isSupabaseConfigured) {
+  console.warn(
+    'Supabase環境変数が設定されていません。一部の機能が制限されます。\n' +
     '必要な環境変数: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY'
   );
 }
 
-// Supabaseクライアントを作成（型安全）
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: false, // 現在は認証なしで使用
-  },
-});
+export const supabase = isSupabaseConfigured 
+  ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false,
+      },
+    })
+  : (null as unknown as ReturnType<typeof createClient<Database>>);
 
 // サーバーサイド用のクライアント（管理者権限）
 export const createServiceRoleClient = () => {

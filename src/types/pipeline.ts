@@ -94,3 +94,16 @@ export interface QueueItem {
   status: 'pending' | 'processing' | 'completed' | 'failed';
   error?: string;
 }
+
+export interface ExecutionHistoryEntry {
+  id: string;
+  executionId?: string; // Supabase execution ID
+  workflowId: string;
+  workflowName: string;
+  timestamp: Date;
+  audioFileName: string;
+  audioFileSize: number;
+  parameters: Record<string, Record<string, string | number | boolean>>; // moduleId -> parameters
+  result: DiarizationResult;
+  segments?: Array<{ start: number; end: number; speaker: string }>; // 取得済みセグメントデータ
+}
