@@ -57,6 +57,15 @@ export interface Pyannote31Options extends Omit<DiarizationOptions, 'model'> {
   batchSize?: 'small' | 'medium' | 'large' | 'auto';
 }
 
+export interface HandyPreprocessOptions {
+  vadEnabled?: boolean;
+  vadThreshold?: number;
+  onsetFrames?: number;
+  prefillFrames?: number;
+  hangoverFrames?: number;
+  enableVisualization?: boolean;
+}
+
 export class AudioProcessingAPI {
   private baseUrl: string;
 
@@ -213,6 +222,59 @@ export class AudioProcessingAPI {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.detail || `Local processing failed: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Handy音声前処理（pyannote 3.1と同じパターン）
+   * Cloud Run内で実行、VAD + リサンプリング + 可視化
+   */
+  async preprocessHandy(
+    file: File,
+    options: HandyPreprocessOptions = {}
+  ): Promise<{
+    status: string;
+    output_gs_uri: string;
+    metadata_uri: string;
+    metadata: {
+      original_sr: number;
+      resampled_sr: number;
+      original_duration: number;
+      processed_duration: number;
+      vad_enabled: boolean;
+      vad_segments: Array<{ start: number; end: number }>;
+      num_segments: number;
+      visualization: number[] | null;
+    };
+  }> {
+    // 1) Get signed URL (pyannote 3.1と同じ)
+    const { signed_url, gs_uri } = await this.getSignedUrl(file.name, file.type);
+
+    // 2) Upload to GCS (pyannote 3.1と同じ)
+    await this.uploadToGCS(file, signed_url);
+
+    // 3) Start Handy preprocessing
+    const response = await fetch(`${this.baseUrl}/preprocess-handy`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        input_gs_uri: gs_uri,
+        vad_enabled: options.vadEnabled !== undefined ? options.vadEnabled : true,
+        vad_threshold: options.vadThreshold || 0.3,
+        onset_frames: options.onsetFrames || 2,
+        prefill_frames: options.prefillFrames || 15,
+        hangover_frames: options.hangoverFrames || 15,
+        enable_visualization: options.enableVisualization !== undefined ? options.enableVisualization : true,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || `Handy preprocessing failed: ${response.status}`);
     }
 
     return response.json();

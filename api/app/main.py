@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google.cloud import storage, secretmanager
+from app.handy_preprocessing import get_handy_preprocessor
 
 # 環境変数
 PROJECT_ID = os.environ.get("PROJECT_ID", "encoded-victory-440718-k6")
@@ -157,22 +158,27 @@ async def startup_event():
     """起動時にデバイスを設定"""
     global device
     print("🚀 Initializing pyannote.audio system...")
-    
+
     try:
         import torch
-        
+
         # Hugging Face トークンを確認
         token = HF_TOKEN_SECRET
         if not token:
             print("⚠️  HF_TOKEN not found")
             return
-        
+
         # GPU/CPU自動選択
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"✅ Device set to {device}")
         print(f"📋 Available models: {list(AVAILABLE_MODELS.keys())}")
         print(f"💾 Max loaded models: {MAX_LOADED_MODELS}")
-        
+
+        # Handy前処理初期化
+        print("🎤 Initializing Handy preprocessor...")
+        handy = get_handy_preprocessor()
+        print(f"✅ Handy preprocessor ready")
+
     except Exception as e:
         print(f"❌ Failed to initialize: {e}")
 
@@ -387,6 +393,134 @@ async def process_local(request: ProcessLocalRequest):
                 os.unlink(audio_path)
             if original_audio_path and audio_path != original_audio_path:
                 os.unlink(original_audio_path)
+        except:
+            pass
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===== Handy音声前処理エンドポイント =====
+
+class PreprocessHandyRequest(BaseModel):
+    input_gs_uri: str
+    output_gs_uri: Optional[str] = None
+    vad_enabled: bool = True
+    vad_threshold: float = 0.3
+    onset_frames: int = 2
+    prefill_frames: int = 15
+    hangover_frames: int = 15
+    enable_visualization: bool = True
+
+
+@app.post("/preprocess-handy")
+async def preprocess_handy(request: PreprocessHandyRequest):
+    """
+    Handy音声前処理（Cloud Run内で実行）
+    pyannote 3.1の /process-local と同じパターン
+    """
+    audio_path = None
+    processed_path = None
+
+    try:
+        # Handy前処理取得
+        handy = get_handy_preprocessor()
+
+        # 元のファイル名取得
+        original_filename = request.input_gs_uri.split("/")[-1]
+        file_extension = os.path.splitext(original_filename)[1] or ".wav"
+        base_name = os.path.splitext(original_filename)[0]
+
+        # 出力先が未指定なら自動生成
+        if not request.output_gs_uri:
+            request.output_gs_uri = f"gs://{BUCKET}/preprocessed/{base_name}_handy.wav"
+
+        print(f"🎯 Preprocessing {request.input_gs_uri} with Handy...")
+
+        # 1. GCSからファイルをダウンロード
+        bucket = storage_client.bucket(BUCKET)
+        blob_path = request.input_gs_uri.replace(f"gs://{BUCKET}/", "")
+        blob = bucket.blob(blob_path)
+
+        # 2. 一時ファイルに保存
+        with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as tmp_file:
+            blob.download_to_filename(tmp_file.name)
+            audio_path = tmp_file.name
+
+        print(f"📥 Downloaded to {audio_path}")
+
+        # 3. 必要に応じてwavに変換
+        if file_extension.lower() not in ['.wav', '.wave']:
+            print(f"🔄 Converting {file_extension} to WAV...")
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as wav_file:
+                wav_path = wav_file.name
+
+            # ffmpegで変換
+            result_ffmpeg = subprocess.run(
+                ['ffmpeg', '-i', audio_path, '-ar', '16000', '-ac', '1', wav_path, '-y'],
+                capture_output=True,
+                text=True
+            )
+
+            if result_ffmpeg.returncode != 0:
+                print(f"❌ FFmpeg error: {result_ffmpeg.stderr}")
+                raise Exception(f"Failed to convert audio: {result_ffmpeg.stderr}")
+
+            os.unlink(audio_path)  # 元ファイル削除
+            audio_path = wav_path
+            print(f"✅ Converted to {wav_path}")
+
+        # 4. Handy前処理実行
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as out_file:
+            processed_path = out_file.name
+
+        print(f"🎙️  Running Handy preprocessing...")
+        metadata = handy.process(
+            input_path=audio_path,
+            output_path=processed_path,
+            vad_enabled=request.vad_enabled,
+            vad_threshold=request.vad_threshold,
+            onset_frames=request.onset_frames,
+            prefill_frames=request.prefill_frames,
+            hangover_frames=request.hangover_frames,
+            enable_visualization=request.enable_visualization
+        )
+
+        print(f"✅ Preprocessing complete: {metadata['processed_duration']:.2f}s")
+
+        # 5. GCSに結果をアップロード
+        output_blob_path = request.output_gs_uri.replace(f"gs://{BUCKET}/", "")
+        output_blob = bucket.blob(output_blob_path)
+        output_blob.upload_from_filename(processed_path)
+
+        # メタデータもアップロード
+        metadata_uri = request.output_gs_uri.replace(".wav", "_metadata.json")
+        metadata_blob_path = metadata_uri.replace(f"gs://{BUCKET}/", "")
+        metadata_blob = bucket.blob(metadata_blob_path)
+        metadata_blob.upload_from_string(
+            json.dumps(metadata, indent=2),
+            content_type="application/json"
+        )
+
+        # 6. 一時ファイル削除
+        os.unlink(audio_path)
+        os.unlink(processed_path)
+
+        print(f"📤 Uploaded to {request.output_gs_uri}")
+
+        return {
+            "status": "success",
+            "output_gs_uri": request.output_gs_uri,
+            "metadata_uri": metadata_uri,
+            "metadata": metadata
+        }
+
+    except Exception as e:
+        print(f"❌ Error during Handy preprocessing: {e}")
+        # エラー時も一時ファイルを削除
+        try:
+            if audio_path:
+                os.unlink(audio_path)
+            if processed_path:
+                os.unlink(processed_path)
         except:
             pass
         raise HTTPException(status_code=500, detail=str(e))

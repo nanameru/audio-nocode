@@ -85,6 +85,63 @@ export const moduleDefinitions: ModuleDefinition[] = [
 
   // ===== 前処理モジュール =====
   {
+    id: 'handy-preprocessing',
+    name: 'Handy前処理',
+    type: 'preprocessing',
+    icon: '🎤',
+    description: 'Handy風音声前処理（Cloud Run実行）\n• 16kHz変換\n• Silero VAD + スムージング\n• スペクトル可視化',
+    color: '#8b5cf6',
+    parameters: {
+      vadEnabled: {
+        type: 'boolean',
+        label: 'VAD有効化',
+        description: '音声活動検出を使用',
+        default: true
+      },
+      vadThreshold: {
+        type: 'slider',
+        label: 'VAD閾値',
+        description: 'Silero検出感度 (0.1=敏感, 0.9=鈍感)',
+        default: 0.3,
+        min: 0.1,
+        max: 0.9,
+        step: 0.1
+      },
+      onsetFrames: {
+        type: 'number',
+        label: 'Onset（音声開始）',
+        description: '連続検出フレーム数 (1フレーム=30ms)',
+        default: 2,
+        min: 1,
+        max: 10
+      },
+      prefillFrames: {
+        type: 'number',
+        label: 'Prefill（先頭バッファ）',
+        description: '音声開始前に含めるフレーム数 (450ms推奨)',
+        default: 15,
+        min: 0,
+        max: 30
+      },
+      hangoverFrames: {
+        type: 'number',
+        label: 'Hangover（末尾保持）',
+        description: '音声終了後も保持するフレーム数 (450ms推奨)',
+        default: 15,
+        min: 0,
+        max: 30
+      },
+      enableVisualization: {
+        type: 'boolean',
+        label: 'スペクトル可視化',
+        description: '16バケットFFT分析データ生成',
+        default: true
+      }
+    },
+    inputPorts: ['audio'],
+    outputPorts: ['audio', 'metadata', 'visualization']
+  },
+  {
     id: 'whisper-preprocessing',
     name: 'Whisper風前処理',
     type: 'preprocessing',
