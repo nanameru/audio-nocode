@@ -978,7 +978,6 @@ export const usePipelineStore = create<PipelineState>()(
         
         if (modules.length === 0) return;
 
-        const moduleMap = new Map(modules.map(m => [m.id, m]));
         const childrenMap = new Map<string, string[]>();
         const parentsMap = new Map<string, string[]>();
         
@@ -994,10 +993,8 @@ export const usePipelineStore = create<PipelineState>()(
         
         const rootModules = modules.filter(m => parentsMap.get(m.id)?.length === 0);
         
-        if (rootModules.length === 0) {
-          const visited = new Set<string>();
-          let startModule = modules[0];
-          rootModules.push(startModule);
+        if (rootModules.length === 0 && modules.length > 0) {
+          rootModules.push(modules[0]);
         }
         
         const levels = new Map<string, number>();
