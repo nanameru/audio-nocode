@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { ModuleInstance, Connection, Pipeline, SystemMetrics, DiarizationResult } from '@/types/pipeline';
+import { ModuleInstance, Connection, Pipeline, SystemMetrics, DiarizationResult, QueueItem } from '@/types/pipeline';
 import { getModuleDefinition } from '@/data/modules';
 import { audioProcessingAPI, Pyannote31Options } from '@/services/api';
 import * as supabaseService from '@/services/supabase';
@@ -37,6 +37,10 @@ interface PipelineState {
   // Results
   diarizationResults: Record<string, DiarizationResult>; // moduleId -> result
   
+  executionQueue: QueueItem[];
+  isProcessingQueue: boolean;
+  currentQueueItem: QueueItem | null;
+  
   // Actions
   createPipeline: (name: string, description?: string) => void;
   loadPipeline: (pipeline: Pipeline) => void;
@@ -69,6 +73,13 @@ interface PipelineState {
   setDiarizationResult: (moduleId: string, result: Omit<DiarizationResult, 'moduleId' | 'timestamp'>) => void;
   clearResults: () => void;
   
+  addToQueue: (file: File) => void;
+  removeFromQueue: (queueItemId: string) => void;
+  clearQueue: () => void;
+  startQueueProcessing: () => void;
+  stopQueueProcessing: () => void;
+  processQueue: () => Promise<void>;
+  
   // Utility actions
   clearPipeline: () => void;
   validatePipeline: () => { isValid: boolean; errors: string[] };
@@ -90,6 +101,9 @@ export const usePipelineStore = create<PipelineState>()(
       diarizationResults: {},
       executionLogs: [],
       executionState: {},
+      executionQueue: [],
+      isProcessingQueue: false,
+      currentQueueItem: null,
 
       // Pipeline actions
       createPipeline: (name: string, description?: string) => {
@@ -821,6 +835,140 @@ export const usePipelineStore = create<PipelineState>()(
         } catch (error) {
           console.error('Failed to import pipeline:', error);
           throw new Error(`パイプラインのインポートに失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
+        }
+      },
+
+      addToQueue: (file: File) => {
+        const queueItem: QueueItem = {
+          id: `queue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          file,
+          addedAt: new Date(),
+          status: 'pending'
+        };
+        
+        set(state => ({
+          executionQueue: [...state.executionQueue, queueItem]
+        }));
+        
+        get().addExecutionLog({
+          level: 'info',
+          message: `キューに追加: ${file.name}`,
+        });
+        
+        if (get().isProcessingQueue && !get().isExecuting) {
+          get().processQueue();
+        }
+      },
+
+      removeFromQueue: (queueItemId: string) => {
+        set(state => ({
+          executionQueue: state.executionQueue.filter(item => item.id !== queueItemId)
+        }));
+      },
+
+      clearQueue: () => {
+        set({ executionQueue: [], currentQueueItem: null });
+        get().addExecutionLog({
+          level: 'info',
+          message: 'キューをクリアしました',
+        });
+      },
+
+      startQueueProcessing: () => {
+        set({ isProcessingQueue: true });
+        get().addExecutionLog({
+          level: 'info',
+          message: 'キュー処理を開始しました',
+        });
+        get().processQueue();
+      },
+
+      stopQueueProcessing: () => {
+        set({ isProcessingQueue: false });
+        get().addExecutionLog({
+          level: 'info',
+          message: 'キュー処理を停止しました',
+        });
+      },
+
+      processQueue: async () => {
+        const { executionQueue, isProcessingQueue, isExecuting, executePipeline, addExecutionLog } = get();
+        
+        if (!isProcessingQueue) {
+          return;
+        }
+        
+        if (isExecuting) {
+          return;
+        }
+        
+        const pendingItems = executionQueue.filter(item => item.status === 'pending');
+        if (pendingItems.length === 0) {
+          if (executionQueue.every(item => item.status === 'completed' || item.status === 'failed')) {
+            addExecutionLog({
+              level: 'success',
+              message: `全てのキュー処理が完了しました (成功: ${executionQueue.filter(i => i.status === 'completed').length}, 失敗: ${executionQueue.filter(i => i.status === 'failed').length})`,
+            });
+          }
+          return;
+        }
+        
+        const nextItem = pendingItems[0];
+        
+        set(state => ({
+          currentQueueItem: nextItem,
+          executionQueue: state.executionQueue.map(item =>
+            item.id === nextItem.id ? { ...item, status: 'processing' as const } : item
+          )
+        }));
+        
+        addExecutionLog({
+          level: 'info',
+          message: `処理中: ${nextItem.file.name} (残り ${pendingItems.length - 1} 件)`,
+        });
+        
+        try {
+          await executePipeline(nextItem.file);
+          
+          set(state => ({
+            executionQueue: state.executionQueue.map(item =>
+              item.id === nextItem.id ? { ...item, status: 'completed' as const } : item
+            ),
+            currentQueueItem: null
+          }));
+          
+          addExecutionLog({
+            level: 'success',
+            message: `完了: ${nextItem.file.name}`,
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          if (get().isProcessingQueue) {
+            get().processQueue();
+          }
+          
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : '不明なエラー';
+          
+          set(state => ({
+            executionQueue: state.executionQueue.map(item =>
+              item.id === nextItem.id ? { ...item, status: 'failed' as const, error: errorMessage } : item
+            ),
+            currentQueueItem: null
+          }));
+          
+          addExecutionLog({
+            level: 'error',
+            message: `失敗: ${nextItem.file.name}`,
+            details: errorMessage
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          if (get().isProcessingQueue) {
+            get().processQueue();
+          }
         }
       }
     }),

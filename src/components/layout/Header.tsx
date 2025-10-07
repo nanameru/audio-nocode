@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Music, Settings, User, HelpCircle, Play, Square, Download, Upload, MoreVertical, Save, Plus, FolderOpen } from 'lucide-react';
+import { Music, Settings, User, HelpCircle, Play, Square, Download, Upload, MoreVertical, Save, Plus, FolderOpen, ListPlus, Trash2, PlayCircle, StopCircle } from 'lucide-react';
 import { usePipelineStore } from '@/store/pipeline';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/DropdownMenu';
@@ -25,7 +25,16 @@ export function Header() {
     validatePipeline,
     exportPipelineAsJSON,
     importPipelineFromJSON,
+    executionQueue,
+    isProcessingQueue,
+    addToQueue,
+    clearQueue,
+    startQueueProcessing,
+    stopQueueProcessing,
   } = usePipelineStore();
+  
+  const pendingCount = executionQueue.filter(item => item.status === 'pending').length;
+  const processingCount = executionQueue.filter(item => item.status === 'processing').length;
 
   const handleExecute = async () => {
     if (isExecuting) {
@@ -77,6 +86,39 @@ export function Header() {
     input.click();
   };
 
+  const handleAddToQueue = () => {
+    const validation = validatePipeline();
+    if (!validation.isValid) {
+      alert(`パイプライン検証エラー: ${validation.errors.join(', ')}`);
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*,video/*';
+    input.multiple = true;
+    input.onchange = (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || []);
+      files.forEach(file => addToQueue(file));
+      if (files.length > 0) {
+        alert(`${files.length} 件のファイルをキューに追加しました`);
+      }
+    };
+    input.click();
+  };
+
+  const handleToggleQueueProcessing = () => {
+    if (isProcessingQueue) {
+      stopQueueProcessing();
+    } else {
+      if (executionQueue.length === 0) {
+        alert('キューが空です。まずファイルをキューに追加してください。');
+        return;
+      }
+      startQueueProcessing();
+    }
+  };
+
   return (
     <header className="bg-white border-b border-gray-200 text-gray-900">
       <div className="px-3 sm:px-6 py-2 sm:py-3">
@@ -120,6 +162,23 @@ export function Header() {
 
           {/* Actions */}
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+            {/* Queue Status - Show when there are items */}
+            {executionQueue.length > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-md">
+                <div className="flex items-center gap-1.5">
+                  {isProcessingQueue && processingCount > 0 && (
+                    <div className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                    </div>
+                  )}
+                  <span className="text-sm font-medium text-blue-700">
+                    キュー: {pendingCount + processingCount}
+                  </span>
+                </div>
+              </div>
+            )}
+            
             {/* Workflow Manager - Desktop only */}
             <div className="hidden lg:block">
               <WorkflowManager />
@@ -248,6 +307,47 @@ export function Header() {
                   </button>
                 }
               >
+                <DropdownMenuItem
+                  onClick={handleAddToQueue}
+                  disabled={!currentPipeline}
+                >
+                  <div className="flex items-center gap-2">
+                    <ListPlus className="h-4 w-4" />
+                    キューに追加
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleToggleQueueProcessing}
+                  disabled={!currentPipeline}
+                >
+                  <div className="flex items-center gap-2">
+                    {isProcessingQueue ? (
+                      <>
+                        <StopCircle className="h-4 w-4" />
+                        キュー処理停止
+                      </>
+                    ) : (
+                      <>
+                        <PlayCircle className="h-4 w-4" />
+                        キュー処理開始
+                      </>
+                    )}
+                  </div>
+                </DropdownMenuItem>
+                {executionQueue.length > 0 && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (confirm('キューをクリアしますか？')) {
+                        clearQueue();
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Trash2 className="h-4 w-4" />
+                      キューをクリア
+                    </div>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={exportPipelineAsJSON}
                   disabled={!currentPipeline}
