@@ -10,7 +10,11 @@ import { usePipelineStore } from '@/store/pipeline';
 import { Pipeline } from '@/types/pipeline';
 import { Save, FolderOpen, Plus } from 'lucide-react';
 
-export function WorkflowManager() {
+interface WorkflowManagerProps {
+  getViewportCenter?: () => { x: number; y: number } | undefined;
+}
+
+export function WorkflowManager({ getViewportCenter }: WorkflowManagerProps = {}) {
   const [workflows, setWorkflows] = useState<Pipeline[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
@@ -23,7 +27,8 @@ export function WorkflowManager() {
     savePipeline, 
     saveAsNewPipeline,
     loadPipelineFromSupabase,
-    loadAllPipelines 
+    loadAllPipelines,
+    viewportCenterGetter
   } = usePipelineStore();
 
   // ワークフロー一覧を取得
@@ -45,7 +50,9 @@ export function WorkflowManager() {
   const handleSelectWorkflow = async (workflowId: string) => {
     setIsLoading(true);
     try {
-      await loadPipelineFromSupabase(workflowId);
+      const viewportCenter = getViewportCenter?.() || viewportCenterGetter?.();
+      
+      await loadPipelineFromSupabase(workflowId, viewportCenter);
       setShowLoadDialog(false);
       alert('ワークフローを読み込みました');
     } catch (error) {

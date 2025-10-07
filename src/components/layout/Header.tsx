@@ -250,7 +250,7 @@ export function Header() {
                       const selection = prompt(`読み込むワークフローの番号を入力してください:\n${workflowList}`);
                       const index = parseInt(selection || '') - 1;
                       if (index >= 0 && index < allWorkflows.length) {
-                        await usePipelineStore.getState().loadPipelineFromSupabase(allWorkflows[index].id);
+                        await usePipelineStore.getState().loadPipelineFromSupabase(allWorkflows[index].id, undefined);
                         alert('ワークフローを読み込みました');
                       }
                     } catch (error) {

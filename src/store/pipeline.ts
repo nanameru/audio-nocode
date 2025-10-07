@@ -18,7 +18,10 @@ export interface ExecutionState {
   audioFileId?: string; // Supabase audio_files ID
 }
 
+export type ViewportCenterGetter = () => { x: number; y: number } | undefined;
+
 interface PipelineState {
+  viewportCenterGetter?: ViewportCenterGetter;
   // Pipeline data
   currentPipeline: Pipeline | null;
   modules: ModuleInstance[];
@@ -43,10 +46,10 @@ interface PipelineState {
   
   // Actions
   createPipeline: (name: string, description?: string) => void;
-  loadPipeline: (pipeline: Pipeline) => void;
+  loadPipeline: (pipeline: Pipeline, viewportCenter?: { x: number; y: number }) => void;
   savePipeline: () => Promise<string>;
   saveAsNewPipeline: (name: string, description?: string) => Promise<string>;
-  loadPipelineFromSupabase: (workflowId: string) => Promise<void>;
+  loadPipelineFromSupabase: (workflowId: string, viewportCenter?: { x: number; y: number }) => Promise<void>;
   loadAllPipelines: () => Promise<Pipeline[]>;
   
   // Module actions
@@ -85,6 +88,8 @@ interface PipelineState {
   validatePipeline: () => { isValid: boolean; errors: string[] };
   exportPipelineAsJSON: () => void;
   importPipelineFromJSON: (file: File) => Promise<void>;
+  
+  setViewportCenterGetter: (getter?: ViewportCenterGetter) => void;
 }
 
 export const usePipelineStore = create<PipelineState>()(
@@ -104,6 +109,7 @@ export const usePipelineStore = create<PipelineState>()(
       executionQueue: [],
       isProcessingQueue: false,
       currentQueueItem: null,
+      viewportCenterGetter: undefined,
 
       // Pipeline actions
       createPipeline: (name: string, description?: string) => {
@@ -125,10 +131,34 @@ export const usePipelineStore = create<PipelineState>()(
         });
       },
 
-      loadPipeline: (pipeline: Pipeline) => {
+      loadPipeline: (pipeline: Pipeline, viewportCenter?: { x: number; y: number }) => {
+        let modules = pipeline.modules;
+        
+        if (viewportCenter && modules.length > 0) {
+          const positions = modules.map(m => m.position);
+          const minX = Math.min(...positions.map(p => p.x));
+          const maxX = Math.max(...positions.map(p => p.x));
+          const minY = Math.min(...positions.map(p => p.y));
+          const maxY = Math.max(...positions.map(p => p.y));
+          
+          const workflowCenterX = (minX + maxX) / 2;
+          const workflowCenterY = (minY + maxY) / 2;
+          
+          const offsetX = viewportCenter.x - workflowCenterX;
+          const offsetY = viewportCenter.y - workflowCenterY;
+          
+          modules = modules.map(m => ({
+            ...m,
+            position: {
+              x: m.position.x + offsetX,
+              y: m.position.y + offsetY
+            }
+          }));
+        }
+        
         set({
           currentPipeline: pipeline,
-          modules: pipeline.modules,
+          modules,
           connections: pipeline.connections,
           selectedModuleId: null
         });
@@ -197,19 +227,14 @@ export const usePipelineStore = create<PipelineState>()(
         }
       },
 
-      loadPipelineFromSupabase: async (workflowId: string) => {
+      loadPipelineFromSupabase: async (workflowId: string, viewportCenter?: { x: number; y: number }) => {
         try {
           const pipeline = await supabaseService.getWorkflow(workflowId);
           if (!pipeline) {
             throw new Error('ワークフローが見つかりません');
           }
           
-          set({
-            currentPipeline: pipeline,
-            modules: pipeline.modules,
-            connections: pipeline.connections,
-            selectedModuleId: null
-          });
+          get().loadPipeline(pipeline, viewportCenter);
           
           console.log('Workflow loaded from Supabase:', workflowId);
         } catch (error) {
@@ -970,7 +995,11 @@ export const usePipelineStore = create<PipelineState>()(
             get().processQueue();
           }
         }
-      }
+      },
+
+      setViewportCenterGetter: (getter?: ViewportCenterGetter) => {
+        set({ viewportCenterGetter: getter });
+      },
     }),
     {
       name: 'pipeline-store'
