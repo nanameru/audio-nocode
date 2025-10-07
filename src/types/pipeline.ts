@@ -86,3 +86,11 @@ export interface SystemMetrics {
   cpu: number;
   gpu?: number;
 }
+
+export interface QueueItem {
+  id: string;
+  file: File;
+  addedAt: Date;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  error?: string;
+}
