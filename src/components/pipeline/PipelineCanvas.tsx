@@ -34,11 +34,12 @@ const edgeTypes: EdgeTypes = {
 
 interface PipelineCanvasProps {
   className?: string;
+  onViewportChange?: (viewport: { x: number; y: number; zoom: number }) => void;
 }
 
-function PipelineCanvasInner({ className }: PipelineCanvasProps) {
+function PipelineCanvasInner({ className, onViewportChange }: PipelineCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, getViewport } = useReactFlow();
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [selectorPosition, setSelectorPosition] = useState<{ x: number; y: number } | undefined>();
   const [targetEdgeId, setTargetEdgeId] = useState<string | null>(null);
@@ -96,6 +97,13 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
   React.useEffect(() => {
     setReactFlowEdges(edges);
   }, [connections, setReactFlowEdges]);
+
+  React.useEffect(() => {
+    if (onViewportChange) {
+      const viewport = getViewport();
+      onViewportChange(viewport);
+    }
+  }, [getViewport, onViewportChange]);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -306,10 +314,10 @@ function PipelineCanvasInner({ className }: PipelineCanvasProps) {
   );
 }
 
-export function PipelineCanvas({ className }: PipelineCanvasProps) {
+export function PipelineCanvas({ className, onViewportChange }: PipelineCanvasProps) {
   return (
     <ReactFlowProvider>
-      <PipelineCanvasInner className={className} />
+      <PipelineCanvasInner className={className} onViewportChange={onViewportChange} />
     </ReactFlowProvider>
   );
 }
