@@ -16,7 +16,7 @@ WORKDIR /app
 # Silero VADモデルをダウンロード
 RUN mkdir -p /app/models && \
     wget -O /app/models/silero_vad.onnx \
-    https://github.com/snakers4/silero-vad/raw/master/files/silero_vad.onnx
+    https://github.com/snakers4/silero-vad/raw/main/files/silero_vad.onnx
 
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -U pip && \
