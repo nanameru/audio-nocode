@@ -5,7 +5,6 @@ RUN apt-get update && apt-get install -y \
     python3.10 \
     python3-pip \
     ffmpeg \
-    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # python3をpythonとして使用
@@ -13,14 +12,14 @@ RUN ln -s /usr/bin/python3 /usr/bin/python
 
 WORKDIR /app
 
-# Silero VADモデルをダウンロード
-RUN mkdir -p /app/models && \
-    wget -O /app/models/silero_vad.onnx \
-    https://github.com/snakers4/silero-vad/raw/master/files/silero_vad.onnx
-
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -U pip && \
     pip install --no-cache-dir -r requirements.txt
+
+# Silero VADモデルをダウンロードしてONNXにエクスポート
+COPY export_silero_vad.py /app/export_silero_vad.py
+RUN mkdir -p /app/models && \
+    python /app/export_silero_vad.py /app/models/silero_vad.onnx
 
 COPY app /app/app
 
