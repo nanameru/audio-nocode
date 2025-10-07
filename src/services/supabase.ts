@@ -137,20 +137,19 @@ export async function saveAudioFile(audioFileData: {
   sampleRate?: number;
   channels?: number;
 }): Promise<string> {
-  const insert = {
-    filename: audioFileData.filename,
-    original_filename: audioFileData.originalFilename,
-    gs_uri: audioFileData.gsUri,
-    file_size_bytes: audioFileData.fileSizeBytes || null,
-    duration_seconds: audioFileData.durationSeconds || null,
-    format: audioFileData.format || null,
-    sample_rate: audioFileData.sampleRate || null,
-    channels: audioFileData.channels || null,
-  };
-
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from('audio_files')
-    .insert(insert)
+    .insert({
+      filename: audioFileData.filename,
+      original_filename: audioFileData.originalFilename,
+      gs_uri: audioFileData.gsUri,
+      file_size_bytes: audioFileData.fileSizeBytes || null,
+      duration_seconds: audioFileData.durationSeconds || null,
+      format: audioFileData.format || null,
+      sample_rate: audioFileData.sampleRate || null,
+      channels: audioFileData.channels || null,
+    })
     .select('id')
     .single();
 
@@ -192,7 +191,8 @@ export async function startWorkflowExecution(
   audioFileId?: string,
   metadata?: Record<string, unknown>
 ): Promise<string> {
-  const { data, error } = await supabase.rpc('start_workflow_execution', {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc('start_workflow_execution', {
     p_workflow_id: workflowId,
     p_audio_file_id: audioFileId || null,
     p_metadata: metadata || null,
@@ -214,7 +214,8 @@ export async function completeWorkflowExecution(
   status: 'completed' | 'failed' | 'cancelled' = 'completed',
   errorMessage?: string
 ): Promise<void> {
-  const { error } = await supabase.rpc('complete_workflow_execution', {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).rpc('complete_workflow_execution', {
     p_execution_id: executionId,
     p_status: status,
     p_error_message: errorMessage || null,
@@ -278,19 +279,18 @@ export async function saveExecutionLog(logData: {
   moduleName?: string;
   timestamp?: Date;
 }): Promise<void> {
-  const insert = {
-    workflow_id: logData.workflowId,
-    workflow_execution_id: logData.workflowExecutionId || null,
-    level: logData.level,
-    message: logData.message,
-    details: logData.details || null,
-    module_name: logData.moduleName || null,
-    timestamp: (logData.timestamp || new Date()).toISOString(),
-  };
-
-  const { error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
     .from('execution_logs')
-    .insert(insert);
+    .insert({
+      workflow_id: logData.workflowId,
+      workflow_execution_id: logData.workflowExecutionId || null,
+      level: logData.level,
+      message: logData.message,
+      details: logData.details || null,
+      module_name: logData.moduleName || null,
+      timestamp: (logData.timestamp || new Date()).toISOString(),
+    });
 
   if (error) {
     console.error('Failed to save execution log:', error);
@@ -310,7 +310,8 @@ export async function saveExecutionLogs(logs: Array<{
   module_name?: string | null;
   timestamp: string;
 }>): Promise<void> {
-  const { error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
     .from('execution_logs')
     .insert(logs);
 
@@ -376,23 +377,22 @@ export async function saveExecutionResult(resultData: {
   executionTimeMs?: number;
   resultData?: Record<string, unknown>;
 }): Promise<string> {
-  const insert = {
-    workflow_id: resultData.workflowId,
-    workflow_execution_id: resultData.workflowExecutionId || null,
-    module_id: resultData.moduleId,
-    module_name: resultData.moduleName,
-    status: resultData.status,
-    output_gs_uri: resultData.outputGsUri || null,
-    speaker_count: resultData.speakerCount || null,
-    segment_count: resultData.segmentCount || null,
-    error_message: resultData.errorMessage || null,
-    execution_time_ms: resultData.executionTimeMs || null,
-    result_data: resultData.resultData || null,
-  };
-
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from('execution_results')
-    .insert(insert)
+    .insert({
+      workflow_id: resultData.workflowId,
+      workflow_execution_id: resultData.workflowExecutionId || null,
+      module_id: resultData.moduleId,
+      module_name: resultData.moduleName,
+      status: resultData.status,
+      output_gs_uri: resultData.outputGsUri || null,
+      speaker_count: resultData.speakerCount || null,
+      segment_count: resultData.segmentCount || null,
+      error_message: resultData.errorMessage || null,
+      execution_time_ms: resultData.executionTimeMs || null,
+      result_data: resultData.resultData || null,
+    })
     .select('id')
     .single();
 
